@@ -68,6 +68,38 @@ class AppData {
   static const String navSaved = 'Saved';
   static const String navProfile = 'Profile';
 
+  // Profile screen
+  static const String profileUserName = 'Aravind BL';
+  static const String profileHandle = '@aravind.eats';
+  static const String profileBioText =
+      'Contrary to popular belief, Lorem ipsum is not simply random text. '
+      'It has roots in a piece of';
+  static const String profileLocationText = 'Thiruvananthapuram, Kerala';
+  static const String profilePostsCount = '128';
+  static const String profileLikesCount = '1.2M';
+  static const String profileStarsCount = '244k';
+  static const String profileRatingValue = '4.9';
+  static const String profilePostsLabel = 'Posts';
+  static const String profileLikesLabel = 'Likes';
+  static const String profileStarsLabel = 'Stars';
+  static const String profileRatingLabel = 'rating';
+  static const String profileEditBtn = 'Edit Profile';
+  static const String profileShareBtn = 'Share Profile';
+  static const String profileLogoutBtn = 'Logout';
+  static const String profileNewHighlight = 'New';
+  static const List<Map<String, String>> profileHighlights = [
+    {'emoji': '🍗', 'name': 'Butter Chicken'},
+    {'emoji': '🌊', 'name': 'Kollam'},
+    {'emoji': '🥗', 'name': 'Top Veg'},
+    {'emoji': '🍖', 'name': 'Mandi'},
+    {'emoji': '🐟', 'name': 'Fish curry'},
+  ];
+
+  // Saved screen
+  static const String savedTitle = 'Saved';
+  static const String savedSubtitle = '128 posts saved';
+  static const List<String> savedFilters = ['All', 'Dishes', 'Restaurants', 'Places'];
+
   // Explore
   static const String exploreSearchHint = 'Search for your favourite food';
   static const String exploreSearchByPlace = 'Search by Place';

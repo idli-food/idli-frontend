@@ -7,7 +7,7 @@ import '../../utils/auth_mode.dart';
 import '../../widgets/shared/app_gradient_button.dart';
 import '../../widgets/shared/app_otp_field.dart';
 import 'complete_profile_screen.dart';
-import '../post-auth/feed_screen.dart';
+import '../post-auth/main_shell_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phone;
@@ -75,7 +75,7 @@ class _OtpScreenState extends State<OtpScreen> {
     } else {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const FeedScreen()),
+        MaterialPageRoute(builder: (_) => const MainShellScreen()),
         (_) => false,
       );
     }
