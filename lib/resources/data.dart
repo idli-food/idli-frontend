@@ -68,6 +68,10 @@ class AppData {
   static const String navSaved = 'Saved';
   static const String navProfile = 'Profile';
 
+  // Explore
+  static const String exploreSearchHint = 'Search for your favourite food';
+  static const String exploreSearchByPlace = 'Search by Place';
+
   // Home / Feed
   static const String homeCity = 'Tiruvananthapuram';
   static const String homeExplorePlaceholder = 'Explore';
