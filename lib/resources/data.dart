@@ -62,6 +62,70 @@ class AppData {
   static const String locationConfirm = 'Confirm Location';
   static const String locationPinHint = 'Move the map to pin your location';
 
+  // Nav bar
+  static const String navHome = 'Home';
+  static const String navExplore = 'Explore';
+  static const String navSaved = 'Saved';
+  static const String navProfile = 'Profile';
+
+  // Home / Feed
+  static const String homeCity = 'Tiruvananthapuram';
+  static const String homeExplorePlaceholder = 'Explore';
+  static const String homeExploreSub = 'Discover new dishes around you';
+  static const String homeSavedPlaceholder = 'Saved';
+  static const String homeSavedSub = 'Your saved posts will appear here';
+  static const String homeProfilePlaceholder = 'Profile';
+  static const String homeProfileSub = 'Manage your profile and settings';
+  static const String homeCreatePlaceholder = 'Create Post';
+  static const String homeCreateSub = 'Share your food story';
+
+  // Feed category chips
+  static const List<Map<String, String>> feedCategories = [
+    {'emoji': '🍛', 'name': 'Chicken Curry'},
+    {'emoji': '🍗', 'name': 'Butter Chicken'},
+    {'emoji': '🫕', 'name': 'Chicken Masala'},
+    {'emoji': '🥩', 'name': 'Beef Curry'},
+    {'emoji': '🍖', 'name': 'Mandi'},
+    {'emoji': '🐟', 'name': 'Fish Curry'},
+  ];
+
+  // Placeholder post data
+  static const List<Map<String, String>> placeholderPosts = [
+    {
+      'username': 'Aravind BL',
+      'handle': 'xyz.restaurant.tvm',
+      'dish': 'Porotta and Beef combo',
+      'restaurant': 'xyz restaurant',
+      'area': 'Kattakkadam',
+      'description':
+          'It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution',
+      'tag': '#porattabeef',
+      'rating': '4.9',
+    },
+    {
+      'username': 'Priya KS',
+      'handle': 'priya.foods.kochi',
+      'dish': 'Appam and Stew',
+      'restaurant': 'Kerala Kitchen',
+      'area': 'Ernakulam',
+      'description':
+          'Soft, lacy appam paired with a coconut milk-based vegetable stew. A classic Kerala breakfast combination that never gets old. Try it fresh!',
+      'tag': '#appamstew',
+      'rating': '4.7',
+    },
+    {
+      'username': 'Rahul Menon',
+      'handle': 'spice.trail.blr',
+      'dish': 'Chicken Biryani',
+      'restaurant': 'Biryani House',
+      'area': 'Kozhikode',
+      'description':
+          'Aromatic basmati rice layered with tender chicken pieces, slow-cooked with a blend of whole spices. A must-try for biryani lovers.',
+      'tag': '#biryani',
+      'rating': '4.8',
+    },
+  ];
+
   // Cuisines
   static const List<Map<String, String>> cuisines = [
     {'emoji': '🍛', 'name': 'Indian'},
