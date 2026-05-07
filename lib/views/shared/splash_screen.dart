@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../resources/app_theme.dart';
-import '../resources/data.dart';
-import '../utils/responsive.dart';
-import '../utils/splash_animation.dart';
-import '../widgets/splash/splash_progress_bar.dart';
-import 'onboarding_screen.dart';
+import '../../resources/app_theme.dart';
+import '../../resources/data.dart';
+import '../../utils/responsive.dart';
+import '../../utils/splash_animation.dart';
+import '../../widgets/splash/splash_progress_bar.dart';
+import '../pre-auth/welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -33,7 +33,7 @@ class _SplashScreenState extends State<SplashScreen>
   void _goToOnboarding() {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
     );
   }
 

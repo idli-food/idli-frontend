@@ -24,6 +24,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Idli needs access to your photos to let you set a profile picture.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Idli needs camera access to let you take a profile photo.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Idli uses your location to show you relevant food content nearby.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
