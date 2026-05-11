@@ -104,6 +104,28 @@ class AppData {
   static const String exploreSearchHint = 'Search for your favourite food';
   static const String exploreSearchByPlace = 'Search by Place';
 
+  // Create Post
+  static const String createPostTitle = 'Create Post';
+  static const String createPostBtn = 'Post';
+  static const String createPostPosting = 'Posting…';
+  static const String createPostMediaLabel = 'Add photo or video';
+  static const String createPostPhotoBtn = 'Photo';
+  static const String createPostVideoBtn = 'Video';
+  static const String createPostChangeMedia = 'Change';
+  static const String createPostTitleLabel = 'TITLE';
+  static const String createPostTitleHint = 'e.g. Best Shawarma in TVM';
+  static const String createPostDescLabel = 'DESCRIPTION';
+  static const String createPostDescHint = 'Tell us about this dish…';
+  static const String createPostLocationLabel = 'LOCATION';
+  static const String createPostLocationPlaceholder = 'Coming soon';
+  static const String createPostLocationBadge = 'Soon';
+  static const String createPostGettingUrl = 'Preparing upload…';
+  static const String createPostUploadingMedia = 'Uploading media…';
+  static const String createPostPublishing = 'Publishing post…';
+  static const String createPostStageUploading = 'Uploading';
+  static const String createPostStagePublishing = 'Publishing';
+  static const String createPostErrorGeneric = 'Something went wrong. Please try again.';
+
   // Home / Feed
   static const String homeCity = 'Tiruvananthapuram';
   static const String homeExplorePlaceholder = 'Explore';
