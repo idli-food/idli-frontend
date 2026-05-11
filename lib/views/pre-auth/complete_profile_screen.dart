@@ -7,7 +7,7 @@ import '../../resources/app_theme.dart';
 import '../../resources/data.dart';
 import '../../utils/responsive.dart';
 import '../../widgets/shared/app_gradient_button.dart';
-import '../post-auth/feed_screen.dart';
+import '../post-auth/main_shell_screen.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
   const CompleteProfileScreen({super.key});
@@ -116,7 +116,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     if (!_isValid) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const FeedScreen()),
+      MaterialPageRoute(builder: (_) => const MainShellScreen()),
       (_) => false,
     );
   }

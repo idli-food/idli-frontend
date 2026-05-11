@@ -62,6 +62,106 @@ class AppData {
   static const String locationConfirm = 'Confirm Location';
   static const String locationPinHint = 'Move the map to pin your location';
 
+  // Nav bar
+  static const String navHome = 'Home';
+  static const String navExplore = 'Explore';
+  static const String navSaved = 'Saved';
+  static const String navProfile = 'Profile';
+
+  // Profile screen
+  static const String profileUserName = 'Aravind BL';
+  static const String profileHandle = '@aravind.eats';
+  static const String profileBioText =
+      'Contrary to popular belief, Lorem ipsum is not simply random text. '
+      'It has roots in a piece of';
+  static const String profileLocationText = 'Thiruvananthapuram, Kerala';
+  static const String profilePostsCount = '128';
+  static const String profileLikesCount = '1.2M';
+  static const String profileStarsCount = '244k';
+  static const String profileRatingValue = '4.9';
+  static const String profilePostsLabel = 'Posts';
+  static const String profileLikesLabel = 'Likes';
+  static const String profileStarsLabel = 'Stars';
+  static const String profileRatingLabel = 'rating';
+  static const String profileEditBtn = 'Edit Profile';
+  static const String profileShareBtn = 'Share Profile';
+  static const String profileLogoutBtn = 'Logout';
+  static const String profileNewHighlight = 'New';
+  static const List<Map<String, String>> profileHighlights = [
+    {'emoji': '🍗', 'name': 'Butter Chicken'},
+    {'emoji': '🌊', 'name': 'Kollam'},
+    {'emoji': '🥗', 'name': 'Top Veg'},
+    {'emoji': '🍖', 'name': 'Mandi'},
+    {'emoji': '🐟', 'name': 'Fish curry'},
+  ];
+
+  // Saved screen
+  static const String savedTitle = 'Saved';
+  static const String savedSubtitle = '128 posts saved';
+  static const List<String> savedFilters = ['All', 'Dishes', 'Restaurants', 'Places'];
+
+  // Explore
+  static const String exploreSearchHint = 'Search for your favourite food';
+  static const String exploreSearchByPlace = 'Search by Place';
+
+  // Home / Feed
+  static const String homeCity = 'Tiruvananthapuram';
+  static const String homeExplorePlaceholder = 'Explore';
+  static const String homeExploreSub = 'Discover new dishes around you';
+  static const String homeSavedPlaceholder = 'Saved';
+  static const String homeSavedSub = 'Your saved posts will appear here';
+  static const String homeProfilePlaceholder = 'Profile';
+  static const String homeProfileSub = 'Manage your profile and settings';
+  static const String homeCreatePlaceholder = 'Create Post';
+  static const String homeCreateSub = 'Share your food story';
+
+  // Feed category chips
+  static const List<Map<String, String>> feedCategories = [
+    {'emoji': '🍛', 'name': 'Chicken Curry'},
+    {'emoji': '🍗', 'name': 'Butter Chicken'},
+    {'emoji': '🫕', 'name': 'Chicken Masala'},
+    {'emoji': '🥩', 'name': 'Beef Curry'},
+    {'emoji': '🍖', 'name': 'Mandi'},
+    {'emoji': '🐟', 'name': 'Fish Curry'},
+  ];
+
+  // Placeholder post data
+  static const List<Map<String, String>> placeholderPosts = [
+    {
+      'username': 'Aravind BL',
+      'handle': 'xyz.restaurant.tvm',
+      'dish': 'Porotta and Beef combo',
+      'restaurant': 'xyz restaurant',
+      'area': 'Kattakkadam',
+      'description':
+          'It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution',
+      'tag': '#porattabeef',
+      'rating': '4.9',
+    },
+    {
+      'username': 'Priya KS',
+      'handle': 'priya.foods.kochi',
+      'dish': 'Appam and Stew',
+      'restaurant': 'Kerala Kitchen',
+      'area': 'Ernakulam',
+      'description':
+          'Soft, lacy appam paired with a coconut milk-based vegetable stew. A classic Kerala breakfast combination that never gets old. Try it fresh!',
+      'tag': '#appamstew',
+      'rating': '4.7',
+    },
+    {
+      'username': 'Rahul Menon',
+      'handle': 'spice.trail.blr',
+      'dish': 'Chicken Biryani',
+      'restaurant': 'Biryani House',
+      'area': 'Kozhikode',
+      'description':
+          'Aromatic basmati rice layered with tender chicken pieces, slow-cooked with a blend of whole spices. A must-try for biryani lovers.',
+      'tag': '#biryani',
+      'rating': '4.8',
+    },
+  ];
+
   // Cuisines
   static const List<Map<String, String>> cuisines = [
     {'emoji': '🍛', 'name': 'Indian'},

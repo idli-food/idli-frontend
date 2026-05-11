@@ -7,6 +7,9 @@ class AppColors {
   static const Color background = Color(0xFFFEFAF4);
   static const Color grey = Color(0xFFACACAC);
   static const Color greyDark = Color(0xFF838383);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color dark = Color(0xFF1A1A1A);
+  static const Color tagBackground = Color(0xFFEEE6FF);
 
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [primary, primaryLight],
