@@ -24,6 +24,36 @@ class AppData {
   static const String otpResend = 'Resend OTP';
   static const String otpVerify = 'Verify';
 
+  // Login screen
+  static const String loginTitle = 'Welcome\nback!';
+  static const String loginSubtitle = 'Sign in to continue';
+  static const String loginIdentifierLabel = 'Phone or Username';
+  static const String loginIdentifierHint = 'e.g. +919876543210 or foodie_anu';
+  static const String loginPasswordLabel = 'Password';
+  static const String loginPasswordHint = 'Your password';
+  static const String loginBtn = 'Log In';
+  static const String loginErrorIdentifierEmpty = 'Please enter your phone number or username';
+  static const String loginErrorPasswordEmpty = 'Please enter your password';
+
+  // Password screen
+  static const String passwordTitle = 'Create a\npassword';
+  static const String passwordSubtitle = 'Use at least 8 characters';
+  static const String passwordLabel = 'Password';
+  static const String passwordHint = 'Min. 8 characters';
+  static const String passwordContinue = 'Continue';
+  static const String passwordErrorEmpty = 'Password is required';
+  static const String passwordErrorShort = 'Password must be at least 8 characters';
+
+  // Username screen
+  static const String usernameTitle = 'Pick a\nusername';
+  static const String usernameSubtitle = 'This is how others will find you';
+  static const String usernameLabel = 'Username';
+  static const String usernameHint = 'e.g. foodie_anu';
+  static const String usernameFinish = 'Create Account';
+  static const String usernameErrorEmpty = 'Username is required';
+  static const String usernameErrorFormat =
+      'Letters, numbers, underscores only · 3–20 chars · must start with a letter';
+
   // Profile
   static const String profileTitle = 'Complete your\nprofile';
   static const String profileSubtitle = 'Help us personalise your feed';

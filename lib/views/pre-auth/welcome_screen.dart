@@ -4,17 +4,11 @@ import '../../resources/data.dart';
 import '../../utils/responsive.dart';
 import '../../utils/auth_mode.dart';
 import '../../widgets/shared/app_gradient_button.dart';
+import 'login_screen.dart';
 import 'phone_number_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
-
-  void _navigate(BuildContext context, AuthMode mode) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => PhoneNumberScreen(mode: mode)),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,12 +69,20 @@ class WelcomeScreen extends StatelessWidget {
                   children: [
                     AppGradientButton(
                       label: AppData.welcomeRegister,
-                      onTap: () => _navigate(context, AuthMode.register),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const PhoneNumberScreen(mode: AuthMode.register),
+                        ),
+                      ),
                     ),
                     SizedBox(height: context.hp(1.5)),
                     AppGradientButton(
                       label: AppData.welcomeLogin,
-                      onTap: () => _navigate(context, AuthMode.login),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      ),
                       outlined: true,
                     ),
                   ],

@@ -5,6 +5,7 @@ class FeedPost {
   final String? avatarUrl;
   final String description;
   final String? mediaUrl;
+  final String? thumbnailUrl;
   final String? mediaType;
   final int likeCount;
   final double avgRating;
@@ -15,6 +16,7 @@ class FeedPost {
   final int commentCount;
   final double? latitude;
   final double? longitude;
+  final int? myRating;
 
   const FeedPost({
     required this.id,
@@ -23,6 +25,7 @@ class FeedPost {
     this.avatarUrl,
     required this.description,
     this.mediaUrl,
+    this.thumbnailUrl,
     this.mediaType,
     required this.likeCount,
     required this.avgRating,
@@ -33,6 +36,7 @@ class FeedPost {
     this.commentCount = 0,
     this.latitude,
     this.longitude,
+    this.myRating,
   });
 
   bool get isVideo {
@@ -52,6 +56,7 @@ class FeedPost {
       avatarUrl: avatarUrl,
       description: json['description'] as String,
       mediaUrl: json['media_url'] as String?,
+      thumbnailUrl: json['thumbnail_url'] as String?,
       mediaType: json['media_type'] as String?,
       likeCount: (json['like_count'] as num).toInt(),
       avgRating: (json['avg_rating'] as num).toDouble(),
@@ -62,6 +67,7 @@ class FeedPost {
       commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
       latitude: (loc?['latitude'] as num?)?.toDouble(),
       longitude: (loc?['longitude'] as num?)?.toDouble(),
+      myRating: (json['my_rating'] as num?)?.toInt(),
     );
   }
 }

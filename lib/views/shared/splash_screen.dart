@@ -3,8 +3,10 @@ import '../../resources/app_theme.dart';
 import '../../resources/data.dart';
 import '../../utils/responsive.dart';
 import '../../utils/splash_animation.dart';
+import '../../utils/token_storage.dart';
 import '../../widgets/splash/splash_progress_bar.dart';
 import '../post-auth/main_shell_screen.dart';
+import '../pre-auth/welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -30,10 +32,15 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
-  void _goToOnboarding() {
+  Future<void> _goToOnboarding() async {
+    if (!mounted) return;
+    final token = await TokenStorage.getAccess();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainShellScreen()),
+      MaterialPageRoute(
+        builder: (_) =>
+            token != null ? const MainShellScreen() : const WelcomeScreen(),
+      ),
     );
   }
 

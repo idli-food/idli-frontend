@@ -44,6 +44,11 @@ dependencies:
   google_nav_bar: ^5.0.6
   flutter_riverpod: ^2.6.1
   riverpod_annotation: ^2.6.1
+  geolocator: ^13.0.0
+  geocoding: ^3.0.0
+  google_maps_flutter: ^2.10.0
+  video_player: ^2.9.2
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
@@ -74,6 +79,7 @@ flutter:
     - lib/assets/idli-icon.png
     - lib/assets/favicon.png
     - lib/assets/Vector.png
+    - lib/assets/welcome_card_vector.png
 
 
   # To add custom fonts to your application, add a fonts section here,

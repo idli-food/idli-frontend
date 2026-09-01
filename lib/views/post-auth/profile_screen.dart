@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/user_profile.dart';
+import '../../providers/profile_provider.dart';
 import '../../resources/app_theme.dart';
 import '../../resources/data.dart';
 import '../../utils/responsive.dart';
+import '../../utils/token_storage.dart';
 import '../../widgets/shared/app_shimmer.dart';
+import '../pre-auth/complete_profile_screen.dart';
 import '../pre-auth/welcome_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  void _logout(BuildContext context) {
+  Future<void> _logout(BuildContext context) async {
+    await TokenStorage.clear();
+    if (!context.mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const WelcomeScreen()),
@@ -17,34 +24,138 @@ class ProfileScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(profileProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _TopSection(onLogout: () => _logout(context)),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: context.hp(2.5)),
-                  const _StatsCard(),
-                  SizedBox(height: context.hp(2)),
-                  const _ActionButtons(),
-                  SizedBox(height: context.hp(2.5)),
-                  const _HighlightsSection(),
+      body: profileAsync.when(
+        loading: () => _buildShimmer(context),
+        error: (e, _) => _buildError(context, ref, e),
+        data: (profile) => _buildContent(context, ref, profile),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, WidgetRef ref, UserProfile profile) {
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(profileProvider),
+      color: AppColors.primary,
+      child: SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _TopSection(profile: profile, onLogout: () => _logout(context)),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: context.hp(2.5)),
+                _StatsCard(profile: profile),
+                SizedBox(height: context.hp(2)),
+                _ActionButtons(ref: ref, profile: profile),
+                if (!profile.isProfileComplete) ...[
+                  SizedBox(height: context.hp(1.5)),
+                  _CompletionBanner(profile: profile),
                 ],
+                SizedBox(height: context.hp(2.5)),
+                const _HighlightsSection(),
+              ],
+            ),
+          ),
+          SizedBox(height: context.hp(1.5)),
+          _PostsGrid(posts: profile.posts),
+          SizedBox(height: context.hp(2)),
+          _LogoutButton(onLogout: () => _logout(context)),
+          SizedBox(height: context.hp(4)),
+        ],
+      ),
+      ),
+    );
+  }
+
+  Widget _buildShimmer(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: context.hp(20)),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+            child: Column(
+              children: [
+                AppShimmer(
+                  height: context.hp(12),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                SizedBox(height: context.hp(2)),
+                AppShimmer(
+                  height: context.hp(6),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                SizedBox(height: context.hp(2.5)),
+                AppShimmer(
+                  height: context.hp(8),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: context.hp(1.5)),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 0.5,
+              mainAxisSpacing: 0.5,
+            ),
+            itemCount: 9,
+            itemBuilder: (_, __) => AppShimmer(borderRadius: BorderRadius.zero),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError(BuildContext context, WidgetRef ref, Object e) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(context.wp(8)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline_rounded,
+                size: context.sp(48), color: AppColors.greyDark),
+            SizedBox(height: context.hp(2)),
+            Text(
+              'Could not load profile',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: context.sp(16),
+                fontWeight: FontWeight.w600,
+                color: AppColors.dark,
               ),
             ),
-            SizedBox(height: context.hp(1.5)),
-            const _PostsGrid(),
-            SizedBox(height: context.hp(2)),
-            _LogoutButton(onLogout: () => _logout(context)),
-            SizedBox(height: context.hp(4)),
+            SizedBox(height: context.hp(1)),
+            Text(
+              e.toString(),
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: context.sp(12),
+                color: AppColors.greyDark,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: context.hp(1)),
+            TextButton(
+              onPressed: () => ref.refresh(profileProvider),
+              child: const Text('Retry'),
+            ),
           ],
         ),
       ),
@@ -52,20 +163,21 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-// ── Top section: blob + logo + profile row with mascot ────────────────────────
+// ── Top section ───────────────────────────────────────────────────────────────
 
 class _TopSection extends StatelessWidget {
+  final UserProfile profile;
   final VoidCallback onLogout;
-  const _TopSection({required this.onLogout});
+  const _TopSection({required this.profile, required this.onLogout});
 
   @override
   Widget build(BuildContext context) {
     final blobSize = context.wp(52);
+    final displayName = profile.name.isNotEmpty ? profile.name : profile.username;
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Yellow circle — top-right, ~half off-screen
         Positioned(
           top: -context.hp(1.5),
           right: -context.wp(12),
@@ -78,7 +190,6 @@ class _TopSection extends StatelessWidget {
             ),
           ),
         ),
-
         SafeArea(
           bottom: false,
           child: Padding(
@@ -91,64 +202,50 @@ class _TopSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Logo
                 Image.asset(
                   'lib/assets/idli-icon.png',
                   height: context.sp(34),
                   fit: BoxFit.contain,
                 ),
-
                 SizedBox(height: context.hp(2)),
-
-                // Profile row: avatar | info | mascot
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Avatar
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.accent, width: 3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.accent.withValues(alpha: 0.4),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: CircleAvatar(
-                        radius: context.wp(9),
-                        backgroundColor: AppColors.grey.withValues(alpha: 0.25),
-                        child: Icon(
-                          Icons.person,
-                          color: AppColors.greyDark,
-                          size: context.sp(28),
-                        ),
-                      ),
-                    ),
-
+                    _Avatar(avatarUrl: profile.avatar, size: context.wp(9)),
                     SizedBox(width: context.wp(3.5)),
-
-                    // Info column
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            AppData.profileUserName,
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: context.sp(18),
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.dark,
-                              height: 1.2,
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  displayName,
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: context.sp(18),
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.dark,
+                                    height: 1.2,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (profile.isVerified) ...[
+                                SizedBox(width: context.wp(1.5)),
+                                Icon(
+                                  Icons.verified_rounded,
+                                  size: context.sp(16),
+                                  color: AppColors.primary,
+                                ),
+                              ],
+                            ],
                           ),
                           SizedBox(height: context.hp(0.3)),
                           Text(
-                            AppData.profileHandle,
+                            '@${profile.username}',
                             style: TextStyle(
                               fontFamily: 'Inter',
                               fontSize: context.sp(12),
@@ -156,48 +253,24 @@ class _TopSection extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          SizedBox(height: context.hp(0.7)),
-                          Text(
-                            AppData.profileBioText,
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: context.sp(12),
-                              color: AppColors.dark.withValues(alpha: 0.75),
-                              height: 1.4,
+                          if (profile.bio.isNotEmpty) ...[
+                            SizedBox(height: context.hp(0.7)),
+                            Text(
+                              profile.bio,
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: context.sp(12),
+                                color: AppColors.dark.withValues(alpha: 0.75),
+                                height: 1.4,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          SizedBox(height: context.hp(0.7)),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.location_on_rounded,
-                                size: context.sp(13),
-                                color: AppColors.primary,
-                              ),
-                              SizedBox(width: context.wp(1)),
-                              Flexible(
-                                child: Text(
-                                  AppData.profileLocationText,
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: context.sp(12),
-                                    color: AppColors.greyDark,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                              ),
-                            ],
-                          ),
+                          ],
                         ],
                       ),
                     ),
-
                     SizedBox(width: context.wp(1)),
-
-                    // Mascot — right of info
                     Image.asset(
                       'lib/assets/favicon.png',
                       width: context.wp(24),
@@ -216,10 +289,63 @@ class _TopSection extends StatelessWidget {
   }
 }
 
+class _Avatar extends StatelessWidget {
+  final String? avatarUrl;
+  final double size;
+  const _Avatar({required this.avatarUrl, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.accent, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.4),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: CircleAvatar(
+        radius: size,
+        backgroundColor: AppColors.grey.withValues(alpha: 0.25),
+        child: ClipOval(
+          child: avatarUrl != null
+              ? Image.network(
+                  avatarUrl!,
+                  width: size * 2,
+                  height: size * 2,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Icon(
+                    Icons.person,
+                    color: AppColors.greyDark,
+                    size: size * 0.9,
+                  ),
+                )
+              : Icon(
+                  Icons.person,
+                  color: AppColors.greyDark,
+                  size: size * 0.9,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Stats card ────────────────────────────────────────────────────────────────
 
 class _StatsCard extends StatelessWidget {
-  const _StatsCard();
+  final UserProfile profile;
+  const _StatsCard({required this.profile});
+
+  static String _fmt(int n) {
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(n % 1000000 == 0 ? 0 : 1)}M';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k';
+    return '$n';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -238,23 +364,14 @@ class _StatsCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _StatItem(
-            value: AppData.profilePostsCount,
-            label: AppData.profilePostsLabel,
-          ),
+          _StatItem(value: _fmt(profile.totalPost), label: AppData.profilePostsLabel),
+          _StatDivider(),
+          _StatItem(value: _fmt(profile.totalLikes), label: AppData.profileLikesLabel),
+          _StatDivider(),
+          _StatItem(value: _fmt(profile.totalStars), label: AppData.profileStarsLabel),
           _StatDivider(),
           _StatItem(
-            value: AppData.profileLikesCount,
-            label: AppData.profileLikesLabel,
-          ),
-          _StatDivider(),
-          _StatItem(
-            value: AppData.profileStarsCount,
-            label: AppData.profileStarsLabel,
-          ),
-          _StatDivider(),
-          _StatItem(
-            value: AppData.profileRatingValue,
+            value: _fmt(profile.totalRating),
             label: AppData.profileRatingLabel,
             showStar: true,
           ),
@@ -286,11 +403,7 @@ class _StatItem extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.star_rounded,
-                  size: context.sp(14),
-                  color: AppColors.accent,
-                ),
+                Icon(Icons.star_rounded, size: context.sp(14), color: AppColors.accent),
                 SizedBox(width: context.wp(0.8)),
                 Text(
                   value,
@@ -344,7 +457,9 @@ class _StatDivider extends StatelessWidget {
 // ── Action buttons ────────────────────────────────────────────────────────────
 
 class _ActionButtons extends StatelessWidget {
-  const _ActionButtons();
+  final WidgetRef ref;
+  final UserProfile profile;
+  const _ActionButtons({required this.ref, required this.profile});
 
   @override
   Widget build(BuildContext context) {
@@ -355,7 +470,14 @@ class _ActionButtons extends StatelessWidget {
           child: SizedBox(
             height: context.hp(5.5),
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CompleteProfileScreen(profile: profile),
+                  ),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -404,6 +526,88 @@ class _ActionButtons extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Profile completion banner ─────────────────────────────────────────────────
+
+class _CompletionBanner extends StatelessWidget {
+  final UserProfile profile;
+  const _CompletionBanner({required this.profile});
+
+  static const _fieldLabels = <String, String>{
+    'name': 'Name',
+    'avatar': 'Profile photo',
+    'bio': 'Bio',
+    'location': 'Location',
+    'diet': 'Diet preference',
+    'dob': 'Date of birth',
+    'food_preference': 'Food preference',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final missing = profile.incompleteFields
+        .map((f) => _fieldLabels[f] ?? f)
+        .join(', ');
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CompleteProfileScreen(
+            profile: profile,
+            filterToIncomplete: true,
+          ),
+        ),
+      ),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.wp(4),
+          vertical: context.hp(1.5),
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.accent.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.accent.withValues(alpha: 0.4),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline_rounded, size: context.sp(18), color: AppColors.dark),
+            SizedBox(width: context.wp(2.5)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Profile ${profile.completionPercentage}% complete',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: context.sp(13),
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.dark,
+                    ),
+                  ),
+                  if (missing.isNotEmpty)
+                    Text(
+                      'Missing: $missing',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: context.sp(11),
+                        color: AppColors.greyDark,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: context.sp(18), color: AppColors.greyDark),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -467,11 +671,7 @@ class _NewHighlight extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: AppColors.accent,
               ),
-              child: Icon(
-                Icons.add,
-                size: circleSize * 0.28,
-                color: AppColors.dark,
-              ),
+              child: Icon(Icons.add, size: circleSize * 0.28, color: AppColors.dark),
             ),
           ),
         ),
@@ -524,10 +724,7 @@ class _HighlightChip extends StatelessWidget {
             ),
           ),
           child: Center(
-            child: Text(
-              emoji,
-              style: TextStyle(fontSize: context.sp(24)),
-            ),
+            child: Text(emoji, style: TextStyle(fontSize: context.sp(24))),
           ),
         ),
         SizedBox(height: context.hp(0.5)),
@@ -554,10 +751,13 @@ class _HighlightChip extends StatelessWidget {
 // ── Posts grid ────────────────────────────────────────────────────────────────
 
 class _PostsGrid extends StatelessWidget {
-  const _PostsGrid();
+  final List<ProfilePost> posts;
+  const _PostsGrid({required this.posts});
 
   @override
   Widget build(BuildContext context) {
+    if (posts.isEmpty) return const SizedBox.shrink();
+
     return Container(
       color: const Color(0xFF555555),
       child: GridView.builder(
@@ -570,8 +770,12 @@ class _PostsGrid extends StatelessWidget {
           mainAxisSpacing: 0.5,
           childAspectRatio: 1.0,
         ),
-        itemCount: 12,
-        itemBuilder: (_, __) => AppShimmer(borderRadius: BorderRadius.zero),
+        itemCount: posts.length,
+        itemBuilder: (_, i) => Image.network(
+          posts[i].thumbnailUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => AppShimmer(borderRadius: BorderRadius.zero),
+        ),
       ),
     );
   }

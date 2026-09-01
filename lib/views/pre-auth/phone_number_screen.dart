@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../resources/app_theme.dart';
 import '../../resources/data.dart';
+import '../../services/auth_service.dart';
 import '../../utils/responsive.dart';
 import '../../utils/auth_mode.dart';
 import '../../widgets/shared/app_gradient_button.dart';
@@ -18,7 +19,9 @@ class PhoneNumberScreen extends StatefulWidget {
 
 class _PhoneNumberScreenState extends State<PhoneNumberScreen> {
   final _controller = TextEditingController();
+  final _service = AuthService();
   String? _error;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -26,7 +29,7 @@ class _PhoneNumberScreenState extends State<PhoneNumberScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final phone = _controller.text.replaceAll(' ', '').trim();
     if (phone.isEmpty) {
       setState(() => _error = AppData.phoneErrorEmpty);
@@ -36,16 +39,37 @@ class _PhoneNumberScreenState extends State<PhoneNumberScreen> {
       setState(() => _error = AppData.phoneErrorInvalid);
       return;
     }
-    setState(() => _error = null);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OtpScreen(
-          phone: '+91$phone',
-          mode: widget.mode,
+    setState(() {
+      _error = null;
+      _isLoading = true;
+    });
+
+    final fullPhone = '+91$phone';
+    try {
+      final requestId = await _service.getOtp(fullPhone);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OtpScreen(
+            phone: fullPhone,
+            mode: widget.mode,
+            requestId: requestId,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -57,9 +81,8 @@ class _PhoneNumberScreenState extends State<PhoneNumberScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon:
-              Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.primary),
-          onPressed: () => Navigator.pop(context),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.primary),
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
         ),
       ),
       body: Padding(
@@ -92,8 +115,8 @@ class _PhoneNumberScreenState extends State<PhoneNumberScreen> {
             ),
             const Spacer(),
             AppGradientButton(
-              label: AppData.phoneSendOtp,
-              onTap: _submit,
+              label: _isLoading ? 'Sending…' : AppData.phoneSendOtp,
+              onTap: _isLoading ? null : _submit,
             ),
             SizedBox(height: context.hp(2) + MediaQuery.of(context).padding.bottom),
           ],

@@ -6,6 +6,7 @@ import '../../providers/create_post_provider.dart';
 import '../../resources/app_theme.dart';
 import '../../resources/data.dart';
 import '../../utils/responsive.dart';
+import '../../views/shared/location_picker_screen.dart';
 import '../../widgets/shared/app_gradient_button.dart';
 
 class CreateScreen extends ConsumerStatefulWidget {
@@ -521,63 +522,86 @@ class _FormFieldState extends State<_FormField> {
   }
 }
 
-class _LocationField extends StatelessWidget {
+class _LocationField extends ConsumerWidget {
   const _LocationField();
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.grey.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.grey.withValues(alpha: 0.3)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
-        children: [
-          const Icon(Icons.location_on_outlined, color: AppColors.grey, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  AppData.createPostLocationLabel,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.grey,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  AppData.createPostLocationPlaceholder,
-                  style: AppTextStyles.secondary.copyWith(
-                    fontSize: context.sp(13),
-                  ),
-                ),
-              ],
-            ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final location = ref.watch(
+        createPostNotifierProvider.select((s) => s.selectedLocation));
+    final hasLocation = location != null;
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LocationPickerScreen(
+            onConfirm: (result) => ref
+                .read(createPostNotifierProvider.notifier)
+                .setLocation(result),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.tagBackground,
-              borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: hasLocation
+              ? AppColors.white
+              : AppColors.grey.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: hasLocation
+                ? AppColors.primary
+                : AppColors.grey.withValues(alpha: 0.3),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              hasLocation
+                  ? Icons.location_on_rounded
+                  : Icons.location_on_outlined,
+              color: hasLocation ? AppColors.primary : AppColors.grey,
+              size: 22,
             ),
-            child: Text(
-              AppData.createPostLocationBadge,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppData.createPostLocationLabel,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: hasLocation ? AppColors.primary : AppColors.grey,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasLocation
+                        ? location.address
+                        : 'Tap to set location',
+                    style: AppTextStyles.secondary.copyWith(
+                      fontSize: context.sp(13),
+                      color: hasLocation ? AppColors.dark : AppColors.grey,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.grey,
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../models/saved_post.dart';
+import '../../models/saved_thumb.dart';
 import '../../resources/app_theme.dart';
 import '../../resources/data.dart';
+import '../../services/post_service.dart';
 import '../../utils/responsive.dart';
+import '../../widgets/home/post_feed_item.dart';
 import '../../widgets/shared/app_shimmer.dart';
 
 const _cardGradients = [
@@ -17,47 +21,283 @@ class SavedScreen extends StatefulWidget {
   const SavedScreen({super.key});
 
   @override
-  State<SavedScreen> createState() => _SavedScreenState();
+  State<SavedScreen> createState() => SavedScreenState();
 }
 
-class _SavedScreenState extends State<SavedScreen> {
+class SavedScreenState extends State<SavedScreen> {
   int _filterIndex = 0;
-  bool _loading = true;
+  List<SavedThumb>? _thumbs;
+  String? _thumbError;
+
+  // non-null while the inline feed view is open
+  List<SavedPost>? _feedPosts;
+  int? _feedIndex;
+  bool _feedLoading = false;
+  String? _feedError;
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1400), () {
-      if (mounted) setState(() => _loading = false);
-    });
+    _fetchThumbnails();
+  }
+
+  void refresh() => _fetchThumbnails();
+
+  Future<void> _fetchThumbnails() async {
+    setState(() { _thumbs = null; _thumbError = null; _feedPosts = null; _feedIndex = null; });
+    try {
+      final thumbs = await PostService().getSavedThumbnails();
+      if (mounted) setState(() => _thumbs = thumbs);
+    } catch (e) {
+      if (mounted) setState(() => _thumbError = e.toString());
+    }
+  }
+
+  Future<void> _openFeed(String tappedId) async {
+    setState(() { _feedLoading = true; _feedError = null; });
+    try {
+      final posts = await PostService().getSavedFeed();
+      final index = posts.indexWhere((p) => p.id == tappedId);
+      if (mounted) {
+        setState(() {
+          _feedPosts = posts;
+          _feedIndex = index < 0 ? 0 : index;
+          _feedLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _feedLoading = false; _feedError = e.toString(); });
+    }
+  }
+
+  void _closeFeed() => setState(() { _feedPosts = null; _feedIndex = null; _feedError = null; });
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: _feedIndex == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _feedIndex != null) _closeFeed();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          body: _feedIndex != null && _feedPosts != null
+              ? _InlineFeed(
+                  posts: _feedPosts!,
+                  initialIndex: _feedIndex!,
+                  onBack: _closeFeed,
+                )
+              : Stack(
+                  children: [
+                    Column(
+                      children: [
+                        _TopBar(),
+                        SizedBox(height: context.hp(1.2)),
+                        _FilterRow(
+                          selected: _filterIndex,
+                          onSelect: (i) => setState(() => _filterIndex = i),
+                        ),
+                        SizedBox(height: context.hp(0.5)),
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 350),
+                            child: _thumbs == null && _thumbError == null
+                                ? const _ShimmerGrid(key: ValueKey('shimmer'))
+                                : _thumbError != null
+                                    ? _ErrorState(
+                                        key: const ValueKey('error'),
+                                        message: _thumbError!,
+                                        onRetry: _fetchThumbnails,
+                                      )
+                                    : _LiveGrid(
+                                        key: const ValueKey('live'),
+                                        thumbs: _thumbs!,
+                                        onPostTap: _openFeed,
+                                        onRefresh: _fetchThumbnails,
+                                      ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    // loading overlay while fetching feed after tap
+                    if (_feedLoading)
+                      const Positioned.fill(
+                        child: ColoredBox(
+                          color: Color(0x55FFFFFF),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                      ),
+                    // error snackbar-style banner
+                    if (_feedError != null)
+                      Positioned(
+                        bottom: 16,
+                        left: 16,
+                        right: 16,
+                        child: Material(
+                          color: Colors.red.shade400,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    color: Colors.white, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Could not open post. Tap to retry.',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontFamily: 'Inter',
+                                        fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Inline feed view ─────────────────────────────────────────────────────────
+
+class _InlineFeed extends StatefulWidget {
+  final List<SavedPost> posts;
+  final int initialIndex;
+  final VoidCallback onBack;
+
+  const _InlineFeed({
+    required this.posts,
+    required this.initialIndex,
+    required this.onBack,
+  });
+
+  @override
+  State<_InlineFeed> createState() => _InlineFeedState();
+}
+
+class _InlineFeedState extends State<_InlineFeed> {
+  late final PageController _controller;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _controller = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: Column(
-          children: [
-            _TopBar(),
-            SizedBox(height: context.hp(1.2)),
-            _FilterRow(
-              selected: _filterIndex,
-              onSelect: (i) => setState(() => _filterIndex = i),
+    return Stack(
+      children: [
+        PageView.builder(
+          controller: _controller,
+          scrollDirection: Axis.vertical,
+          itemCount: widget.posts.length,
+          onPageChanged: (i) => setState(() => _currentIndex = i),
+          itemBuilder: (_, i) => SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              context.wp(4),
+              context.hp(8),
+              context.wp(4),
+              context.hp(2),
             ),
-            SizedBox(height: context.hp(0.5)),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 350),
-                child: _loading
-                    ? const _ShimmerGrid(key: ValueKey('shimmer'))
-                    : const _LiveGrid(key: ValueKey('live')),
+            child: PostFeedItem(
+              post: widget.posts[i].toFeedPost(),
+              index: i,
+            ),
+          ),
+        ),
+
+        // back button
+        SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: context.wp(2),
+              top: context.hp(0.5),
+            ),
+            child: GestureDetector(
+              onTap: widget.onBack,
+              child: Container(
+                width: context.sp(40),
+                height: context.sp(40),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.arrow_back_rounded,
+                  color: AppColors.dark,
+                  size: context.sp(20),
+                ),
               ),
             ),
-          ],
+          ),
         ),
-      ),
+
+        // page counter
+        SafeArea(
+          child: Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: EdgeInsets.only(
+                right: context.wp(4),
+                top: context.hp(1.2),
+              ),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.wp(3),
+                  vertical: context.hp(0.6),
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  '${_currentIndex + 1} / ${widget.posts.length}',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: context.sp(12),
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.dark,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -225,43 +465,96 @@ class _FilterChip extends StatelessWidget {
 // ── Live grid ─────────────────────────────────────────────────────────────────
 
 class _LiveGrid extends StatelessWidget {
-  const _LiveGrid({super.key});
+  final List<SavedThumb> thumbs;
+  final void Function(String id) onPostTap;
+  final Future<void> Function() onRefresh;
+  const _LiveGrid({super.key, required this.thumbs, required this.onPostTap, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
-    final posts = AppData.placeholderPosts;
-    final items = List.generate(8, (i) => posts[i % posts.length]);
+    if (thumbs.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        color: AppColors.primary,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: context.hp(70),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.bookmark_border_rounded,
+                      size: context.sp(48), color: AppColors.grey),
+                  SizedBox(height: context.hp(2)),
+                  Text(
+                    'Nothing saved yet',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: context.sp(16),
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.dark,
+                    ),
+                  ),
+                  SizedBox(height: context.hp(0.8)),
+                  Text(
+                    'Bookmark posts from your feed to see them here.',
+                    style: AppTextStyles.secondary.copyWith(fontSize: context.sp(13)),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
-    return GridView.builder(
-      padding: EdgeInsets.fromLTRB(
-        context.wp(4),
-        context.hp(1),
-        context.wp(4),
-        context.hp(2),
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.primary,
+      child: GridView.builder(
+        padding: EdgeInsets.fromLTRB(
+          context.wp(4),
+          context.hp(1),
+          context.wp(4),
+          context.hp(2),
+        ),
+        physics: const BouncingScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: context.wp(3),
+          mainAxisSpacing: context.hp(1.5),
+          childAspectRatio: 0.72,
+        ),
+        itemCount: thumbs.length,
+        itemBuilder: (_, i) => _SavedCard(
+          thumb: thumbs[i],
+          index: i,
+          onTap: () => onPostTap(thumbs[i].id),
+        ),
       ),
-      physics: const BouncingScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: context.wp(3),
-        mainAxisSpacing: context.hp(1.5),
-        childAspectRatio: 0.72,
-      ),
-      itemCount: items.length,
-      itemBuilder: (_, i) => _SavedCard(post: items[i], index: i),
     );
   }
 }
 
 class _SavedCard extends StatelessWidget {
-  final Map<String, String> post;
+  final SavedThumb thumb;
   final int index;
-  const _SavedCard({required this.post, required this.index});
+  final VoidCallback onTap;
+  const _SavedCard({
+    required this.thumb,
+    required this.index,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final gradientPair = _cardGradients[index % _cardGradients.length];
 
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
@@ -276,7 +569,7 @@ class _SavedCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         child: Stack(
           children: [
-            // Gradient background
+            // Gradient background (always visible — shows while image loads)
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -291,6 +584,18 @@ class _SavedCard extends StatelessWidget {
 
             // Dot texture
             Positioned.fill(child: CustomPaint(painter: _DotPainter())),
+
+            // Thumbnail image
+            if (thumb.thumbnailUrl != null)
+              Positioned.fill(
+                child: Image.network(
+                  thumb.thumbnailUrl!,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (_, child, progress) =>
+                      progress == null ? child : const SizedBox.shrink(),
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
 
             // Bookmark badge — top-right
             Positioned(
@@ -311,101 +616,82 @@ class _SavedCard extends StatelessWidget {
               ),
             ),
 
-            // Rating badge — top-left
-            Positioned(
-              top: context.hp(1.2),
-              left: context.wp(2.5),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.wp(1.8),
-                  vertical: context.hp(0.35),
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.accent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.star_rounded,
-                        size: context.sp(11), color: AppColors.dark),
-                    SizedBox(width: context.wp(0.8)),
-                    Text(
-                      post['rating']!,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: context.sp(10),
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.dark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Bottom overlay
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: EdgeInsets.fromLTRB(
-                  context.wp(3),
-                  context.hp(4),
-                  context.wp(3),
-                  context.hp(1.8),
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.82),
-                      Colors.transparent,
-                    ],
+            // Video indicator — bottom-left
+            if (thumb.isVideo)
+              Positioned(
+                bottom: context.hp(1.2),
+                left: context.wp(2.5),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.wp(1.8),
+                    vertical: context.hp(0.35),
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.play_arrow_rounded,
+                    size: context.sp(14),
+                    color: Colors.white,
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      post['dish']!,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        color: Colors.white,
-                        fontSize: context.sp(12),
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    SizedBox(height: context.hp(0.3)),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_rounded,
-                          color: AppColors.accent,
-                          size: context.sp(10),
-                        ),
-                        SizedBox(width: context.wp(0.8)),
-                        Flexible(
-                          child: Text(
-                            post['restaurant']!,
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              color: Colors.white.withValues(alpha: 0.72),
-                              fontSize: context.sp(10),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+              ),
+          ],
+        ),
+      ),
+    ),
+    );
+  }
+}
+
+// ── Error state ───────────────────────────────────────────────────────────────
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorState({super.key, required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: context.wp(8)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.wifi_off_rounded,
+                size: context.sp(48), color: AppColors.grey),
+            SizedBox(height: context.hp(2)),
+            Text(
+              'Could not load saved posts',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: context.sp(16),
+                fontWeight: FontWeight.w600,
+                color: AppColors.dark,
+              ),
+            ),
+            SizedBox(height: context.hp(1)),
+            GestureDetector(
+              onTap: onRetry,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.wp(6),
+                  vertical: context.hp(1.2),
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Retry',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: context.sp(14),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),

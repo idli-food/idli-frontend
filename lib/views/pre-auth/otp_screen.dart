@@ -2,18 +2,25 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../resources/app_theme.dart';
 import '../../resources/data.dart';
+import '../../services/auth_service.dart';
 import '../../utils/responsive.dart';
 import '../../utils/auth_mode.dart';
 import '../../widgets/shared/app_gradient_button.dart';
 import '../../widgets/shared/app_otp_field.dart';
-import 'complete_profile_screen.dart';
+import 'password_screen.dart';
 import '../post-auth/main_shell_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phone;
   final AuthMode mode;
+  final String requestId;
 
-  const OtpScreen({super.key, required this.phone, required this.mode});
+  const OtpScreen({
+    super.key,
+    required this.phone,
+    required this.mode,
+    required this.requestId,
+  });
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -23,7 +30,9 @@ class _OtpScreenState extends State<OtpScreen> {
   String _otp = '';
   int _secondsLeft = 60;
   Timer? _timer;
+  bool _isLoading = false;
   final _otpKey = GlobalKey<AppOtpFieldState>();
+  final _service = AuthService();
 
   String get _maskedPhone {
     if (widget.phone.length < 6) return widget.phone;
@@ -65,19 +74,39 @@ class _OtpScreenState extends State<OtpScreen> {
     _startTimer();
   }
 
-  void _verify() {
-    if (_otp.length != 6) return;
-    if (widget.mode == AuthMode.register) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const CompleteProfileScreen()),
+  Future<void> _verify() async {
+    if (_otp.length != 6 || _isLoading) return;
+    setState(() => _isLoading = true);
+
+    try {
+      await _service.validateOtp(_otp, widget.requestId);
+      if (!mounted) return;
+
+      if (widget.mode == AuthMode.register) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => PasswordScreen(phone: widget.phone)),
+        );
+      } else {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MainShellScreen()),
+          (_) => false,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _otpKey.currentState?.clear();
+      setState(() => _otp = '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 5),
+        ),
       );
-    } else {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const MainShellScreen()),
-        (_) => false,
-      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -90,9 +119,8 @@ class _OtpScreenState extends State<OtpScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon:
-              Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.primary),
-          onPressed: () => Navigator.pop(context),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.primary),
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
         ),
       ),
       body: Padding(
@@ -111,8 +139,7 @@ class _OtpScreenState extends State<OtpScreen> {
             SizedBox(height: context.hp(1)),
             RichText(
               text: TextSpan(
-                style: AppTextStyles.secondary
-                    .copyWith(fontSize: context.sp(15)),
+                style: AppTextStyles.secondary.copyWith(fontSize: context.sp(15)),
                 children: [
                   const TextSpan(text: 'Sent to '),
                   TextSpan(
@@ -135,8 +162,7 @@ class _OtpScreenState extends State<OtpScreen> {
               child: _secondsLeft > 0
                   ? RichText(
                       text: TextSpan(
-                        style: AppTextStyles.secondary
-                            .copyWith(fontSize: context.sp(14)),
+                        style: AppTextStyles.secondary.copyWith(fontSize: context.sp(14)),
                         children: [
                           TextSpan(text: AppData.otpResendIn),
                           TextSpan(
@@ -166,8 +192,8 @@ class _OtpScreenState extends State<OtpScreen> {
             ),
             const Spacer(),
             AppGradientButton(
-              label: AppData.otpVerify,
-              onTap: _otp.length == 6 ? _verify : null,
+              label: _isLoading ? 'Verifying…' : AppData.otpVerify,
+              onTap: (_otp.length == 6 && !_isLoading) ? _verify : null,
             ),
             SizedBox(height: context.hp(2) + MediaQuery.of(context).padding.bottom),
           ],

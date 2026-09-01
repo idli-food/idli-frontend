@@ -17,12 +17,13 @@ class _MainShellScreenState extends State<MainShellScreen> {
   // App-level tab indices: 0=Home, 1=Explore, 2=Create(+), 3=Saved, 4=Profile
   int _selectedIndex = 0;
 
-  // Screens for indices 0,1,3,4 (index 2 = Create, handled as push)
-  static const List<Widget> _screens = [
-    FeedScreen(),
-    ExploreScreen(),
-    SavedScreen(),
-    ProfileScreen(),
+  final _savedKey = GlobalKey<SavedScreenState>();
+
+  List<Widget> get _screens => [
+    const FeedScreen(),
+    const ExploreScreen(),
+    SavedScreen(key: _savedKey),
+    const ProfileScreen(),
   ];
 
   void _onTabChange(int index) {
@@ -31,6 +32,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
         MaterialPageRoute(builder: (_) => const CreateScreen()),
       );
       return;
+    }
+    // Refresh saved posts every time the Saved tab is tapped
+    if (index == 3) {
+      _savedKey.currentState?.refresh();
     }
     setState(() => _selectedIndex = index);
   }

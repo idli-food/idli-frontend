@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../services/post_service.dart';
+import '../utils/location_result.dart';
 import '../utils/media_utils.dart';
 
 part 'create_post_provider.g.dart';
@@ -13,12 +14,14 @@ class CreatePostState {
   final String mediaType;
   final UploadStage stage;
   final String? error;
+  final LocationResult? selectedLocation;
 
   const CreatePostState({
     this.selectedFile,
     this.mediaType = 'image',
     this.stage = UploadStage.idle,
     this.error,
+    this.selectedLocation,
   });
 
   bool get isLoading =>
@@ -31,6 +34,7 @@ class CreatePostState {
     String? mediaType,
     UploadStage? stage,
     String? Function()? error,
+    LocationResult? Function()? selectedLocation,
   }) =>
       CreatePostState(
         selectedFile:
@@ -38,6 +42,8 @@ class CreatePostState {
         mediaType: mediaType ?? this.mediaType,
         stage: stage ?? this.stage,
         error: error != null ? error() : this.error,
+        selectedLocation:
+            selectedLocation != null ? selectedLocation() : this.selectedLocation,
       );
 }
 
@@ -53,6 +59,10 @@ class CreatePostNotifier extends _$CreatePostNotifier {
       selectedFile: () => file,
       mediaType: mediaType,
     );
+  }
+
+  void setLocation(LocationResult location) {
+    state = state.copyWith(selectedLocation: () => location);
   }
 
   void reset() => state = const CreatePostState();
@@ -91,14 +101,15 @@ class CreatePostNotifier extends _$CreatePostNotifier {
 
       // Step 3: create post metadata
       state = state.copyWith(stage: UploadStage.creatingPost);
-      final mediaUrl = Uri.parse(uploadUrl).replace(query: '').toString();
-      debugPrint('[CreatePost] → createPost  mediaType=${mediaTypeFromPath(file.path)}  key=$key  mediaUrl=$mediaUrl');
+      debugPrint('[CreatePost] → createPost  mediaType=${mediaTypeFromPath(file.path)}  key=$key');
+      final loc = state.selectedLocation;
       await _service.createPost(
         title: title,
         description: description,
         mediaType: mediaTypeFromPath(file.path),
         rawS3Key: key,
-        mediaUrl: mediaUrl,
+        latitude: loc?.latitude ?? 9.9312,
+        longitude: loc?.longitude ?? 76.2673,
       );
       debugPrint('[CreatePost] ✓ post created successfully');
 

@@ -1,43 +1,123 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import '../../models/user_profile.dart';
+import '../../providers/profile_provider.dart';
 import '../../resources/app_theme.dart';
 import '../../resources/data.dart';
+import '../../services/profile_service.dart';
+import '../../utils/location_result.dart';
 import '../../utils/responsive.dart';
 import '../../widgets/shared/app_gradient_button.dart';
 import '../post-auth/main_shell_screen.dart';
+import '../shared/location_picker_screen.dart';
 
-class CompleteProfileScreen extends StatefulWidget {
-  const CompleteProfileScreen({super.key});
+class CompleteProfileScreen extends ConsumerStatefulWidget {
+  /// When true (onboarding flow), navigates to MainShellScreen on success.
+  /// When false (from profile banner), pops and refreshes profile.
+  final bool onboarding;
+
+  /// Existing profile data — used only for incompleteFields filtering.
+  final UserProfile? profile;
+
+  /// When true, only show fields listed in [profile.incompleteFields].
+  final bool filterToIncomplete;
+
+  const CompleteProfileScreen({
+    super.key,
+    this.onboarding = false,
+    this.profile,
+    this.filterToIncomplete = false,
+  });
 
   @override
-  State<CompleteProfileScreen> createState() => _CompleteProfileScreenState();
+  ConsumerState<CompleteProfileScreen> createState() =>
+      _CompleteProfileScreenState();
 }
 
-class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
+class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
+  // Local image picked by user
   File? _profileImage;
-  final _usernameCtrl = TextEditingController();
+  // Existing avatar URL from API (shown when no local image selected)
+  String? _existingAvatarUrl;
+
+  String? _username;
   final _fullNameCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
-  final _locationCtrl = TextEditingController();
   DateTime? _dob;
   bool? _isVeg;
   final Set<int> _selectedCuisines = {};
+  LocationResult? _selectedLocation;
+
   bool _submitted = false;
+  bool _loadingDetails = true;
 
-  // ── Validators ─────────────────────────────────────────────────────────────
-
-  String? get _usernameError {
-    if (!_submitted) return null;
-    final v = _usernameCtrl.text.trim();
-    if (v.isEmpty) return AppData.profileErrorUsername;
-    if (!RegExp(r'^[a-zA-Z][a-zA-Z0-9_]{2,19}$').hasMatch(v)) {
-      return AppData.profileErrorUsernameFormat;
-    }
-    return null;
+  @override
+  void initState() {
+    super.initState();
+    _fetchDetails();
   }
+
+  Future<void> _fetchDetails() async {
+    try {
+      final details = await ProfileService().getUserDetails();
+      if (!mounted) return;
+      setState(() {
+        _username = details.username;
+        _fullNameCtrl.text = details.name;
+        _bioCtrl.text = details.bio;
+        _existingAvatarUrl = details.avatar;
+
+        if (details.dob != null) {
+          _dob = DateTime.tryParse(details.dob!);
+        }
+
+        if (details.diet != null) {
+          _isVeg = details.diet == 'veg';
+        }
+
+        if (details.foodPreference != null && details.foodPreference!.isNotEmpty) {
+          final names = details.foodPreference!
+              .split(', ')
+              .map((s) => s.trim())
+              .toSet();
+          for (var i = 0; i < AppData.cuisines.length; i++) {
+            if (names.contains(AppData.cuisines[i]['name'])) {
+              _selectedCuisines.add(i);
+            }
+          }
+        }
+
+        if (details.latitude != null && details.longitude != null) {
+          _selectedLocation = LocationResult(
+            latitude: details.latitude!,
+            longitude: details.longitude!,
+            address: 'Saved location',
+          );
+        }
+
+        _loadingDetails = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingDetails = false);
+    }
+  }
+
+  // Returns true if this field should be shown to the user.
+  bool _shouldShow(String field) {
+    if (!widget.filterToIncomplete || widget.profile == null) return true;
+    return widget.profile!.incompleteFields.contains(field);
+  }
+
+  // In edit mode (not onboarding, not filterToIncomplete), only name is
+  // required. All other fields are optional — the PATCH sends only what's set.
+  bool get _strictValidation => widget.onboarding || widget.filterToIncomplete;
+
+  // ── Validators ──────────────────────────────────────────────────────────────
 
   String? get _fullNameError {
     if (!_submitted) return null;
@@ -46,7 +126,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   }
 
   String? get _dobError {
-    if (!_submitted) return null;
+    if (!_submitted || !_strictValidation) return null;
     if (_dob == null) return AppData.profileErrorDob;
     final cutoff = DateTime.now().subtract(const Duration(days: 365 * 13 + 3));
     if (_dob!.isAfter(cutoff)) return AppData.profileErrorDobAge;
@@ -54,32 +134,33 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   }
 
   String? get _foodTypeError {
-    if (!_submitted) return null;
+    if (!_submitted || !_strictValidation) return null;
     if (_isVeg == null) return AppData.profileErrorFoodType;
     return null;
   }
 
   String? get _cuisineError {
-    if (!_submitted) return null;
+    if (!_submitted || !_strictValidation) return null;
     if (_selectedCuisines.isEmpty) return AppData.profileErrorCuisines;
     return null;
   }
 
   String? get _locationError {
-    if (!_submitted) return null;
-    if (_locationCtrl.text.trim().isEmpty) return AppData.profileErrorLocation;
+    if (!_submitted || !_strictValidation) return null;
+    if (_selectedLocation == null) return AppData.profileErrorLocation;
     return null;
   }
 
-  bool get _isValid =>
-      _usernameError == null &&
-      _fullNameError == null &&
-      _dobError == null &&
-      _foodTypeError == null &&
-      _cuisineError == null &&
-      _locationError == null;
+  bool get _isValid {
+    if (_shouldShow('name') && _fullNameError != null) return false;
+    if (_shouldShow('dob') && _dobError != null) return false;
+    if (_shouldShow('diet') && _foodTypeError != null) return false;
+    if (_shouldShow('food_preference') && _cuisineError != null) return false;
+    if (_shouldShow('location') && _locationError != null) return false;
+    return true;
+  }
 
-  // ── Actions ────────────────────────────────────────────────────────────────
+  // ── Actions ─────────────────────────────────────────────────────────────────
 
   Future<void> _pickImage() async {
     final file = await ImagePicker().pickImage(
@@ -111,174 +192,275 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     if (picked != null && mounted) setState(() => _dob = picked);
   }
 
-  void _submit() {
+  Future<void> _openLocationPicker() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(
+          onConfirm: (result) {
+            if (mounted) setState(() => _selectedLocation = result);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
     setState(() => _submitted = true);
     if (!_isValid) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const MainShellScreen()),
-      (_) => false,
-    );
+
+    final cuisineNames = _selectedCuisines
+        .map((i) => AppData.cuisines[i]['name']!)
+        .join(', ');
+
+    await ref.read(completeProfileNotifierProvider.notifier).submit(
+          avatarFile: _shouldShow('avatar') ? _profileImage : null,
+          name: _shouldShow('name') ? _fullNameCtrl.text.trim() : null,
+          bio: _shouldShow('bio')
+              ? (_bioCtrl.text.trim().isEmpty ? null : _bioCtrl.text.trim())
+              : null,
+          dob: _shouldShow('dob')
+              ? (_dob != null ? DateFormat('yyyy-MM-dd').format(_dob!) : null)
+              : null,
+          diet: _shouldShow('diet') && _isVeg != null
+              ? (_isVeg! ? 'veg' : 'non_veg')
+              : null,
+          foodPreference: _shouldShow('food_preference') && _selectedCuisines.isNotEmpty
+              ? cuisineNames
+              : null,
+          lat: _shouldShow('location') ? _selectedLocation?.latitude : null,
+          lon: _shouldShow('location') ? _selectedLocation?.longitude : null,
+        );
   }
 
   @override
   void dispose() {
-    _usernameCtrl.dispose();
     _fullNameCtrl.dispose();
     _bioCtrl.dispose();
-    _locationCtrl.dispose();
     super.dispose();
   }
 
-  // ── Build ───────────────────────────────────────────────────────────────────
+  // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded,
-              color: AppColors.primary),
-          onPressed: () => Navigator.pop(context),
+    final notifier = ref.watch(completeProfileNotifierProvider);
+
+    ref.listen(completeProfileNotifierProvider, (_, next) {
+      if (next.stage == ProfileUpdateStage.done) {
+        if (widget.onboarding) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const MainShellScreen()),
+            (_) => false,
+          );
+        } else {
+          ref.invalidate(profileProvider);
+          Navigator.pop(context);
+        }
+      } else if (next.stage == ProfileUpdateStage.error && next.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.error!),
+            backgroundColor: Colors.red.shade400,
+          ),
+        );
+        ref.read(completeProfileNotifierProvider.notifier).clearError();
+      }
+    });
+
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: AppColors.primary),
+              onPressed: notifier.isLoading ? null : () => Navigator.pop(context),
+            ),
+          ),
+          body: _loadingDetails
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                )
+              : Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(
+                          context.wp(6),
+                          0,
+                          context.wp(6),
+                          context.hp(2),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              AppData.profileTitle,
+                              style: AppTextStyles.primary.copyWith(
+                                fontSize: context.sp(30),
+                                height: 1.2,
+                              ),
+                            ),
+                            SizedBox(height: context.hp(0.6)),
+                            Text(
+                              AppData.profileSubtitle,
+                              style: AppTextStyles.secondary.copyWith(
+                                fontSize: context.sp(14),
+                              ),
+                            ),
+                            SizedBox(height: context.hp(3)),
+
+                            if (_shouldShow('avatar')) ...[
+                              _buildProfilePhoto(),
+                              SizedBox(height: context.hp(3.5)),
+                            ],
+
+                            // Username (always shown, read-only)
+                            if (_username != null) ...[
+                              _sectionTitle('Account'),
+                              _buildReadOnlyField(
+                                label: 'Username',
+                                value: '@$_username',
+                              ),
+                              SizedBox(height: context.hp(3.5)),
+                            ],
+
+                            if (_shouldShow('name') || _shouldShow('dob')) ...[
+                              _sectionTitle('Basic Info'),
+                              if (_shouldShow('name')) ...[
+                                _buildTextField(
+                                  controller: _fullNameCtrl,
+                                  hint: AppData.profileFullNameHint,
+                                  label: AppData.profileFullName,
+                                  errorText: _fullNameError,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                                if (_shouldShow('dob'))
+                                  SizedBox(height: context.hp(1.8)),
+                              ],
+                              if (_shouldShow('dob')) _buildDobField(),
+                              SizedBox(height: context.hp(3.5)),
+                            ],
+
+                            if (_shouldShow('bio')) ...[
+                              _sectionTitle('About You'),
+                              _buildTextField(
+                                controller: _bioCtrl,
+                                hint: AppData.profileBioHint,
+                                label: AppData.profileBio,
+                                multiline: true,
+                                maxLength: 120,
+                              ),
+                              SizedBox(height: context.hp(3.5)),
+                            ],
+
+                            if (_shouldShow('diet')) ...[
+                              _sectionTitle(AppData.profileFoodType),
+                              _buildFoodTypeToggle(),
+                              if (_foodTypeError != null) ...[
+                                SizedBox(height: context.hp(0.6)),
+                                _errorText(_foodTypeError!),
+                              ],
+                              SizedBox(height: context.hp(3.5)),
+                            ],
+
+                            if (_shouldShow('food_preference')) ...[
+                              _sectionTitle(AppData.profileCuisines),
+                              Text(
+                                AppData.profileCuisinesHint,
+                                style: AppTextStyles.secondary.copyWith(
+                                    fontSize: context.sp(12)),
+                              ),
+                              SizedBox(height: context.hp(1.2)),
+                              _buildCuisineGrid(),
+                              if (_cuisineError != null) ...[
+                                SizedBox(height: context.hp(0.8)),
+                                _errorText(_cuisineError!),
+                              ],
+                              SizedBox(height: context.hp(3.5)),
+                            ],
+
+                            if (_shouldShow('location')) ...[
+                              _sectionTitle(AppData.profileLocation),
+                              _buildLocationField(),
+                              if (_locationError != null) ...[
+                                SizedBox(height: context.hp(0.6)),
+                                _errorText(_locationError!),
+                              ],
+                              SizedBox(height: context.hp(2)),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    Container(
+                      color: AppColors.background,
+                      padding: EdgeInsets.fromLTRB(
+                        context.wp(6),
+                        context.hp(1.5),
+                        context.wp(6),
+                        context.hp(3) + MediaQuery.of(context).padding.bottom,
+                      ),
+                      child: _buildSubmitButton(notifier),
+                    ),
+                  ],
+                ),
         ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                context.wp(6),
-                0,
-                context.wp(6),
-                context.hp(2),
-              ),
+
+        if (notifier.isLoading)
+          Container(
+            color: Colors.black.withValues(alpha: 0.35),
+            child: Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    AppData.profileTitle,
-                    style: AppTextStyles.primary.copyWith(
-                      fontSize: context.sp(30),
-                      height: 1.2,
-                    ),
-                  ),
-                  SizedBox(height: context.hp(0.6)),
-                  Text(
-                    AppData.profileSubtitle,
-                    style: AppTextStyles.secondary.copyWith(
-                      fontSize: context.sp(14),
-                    ),
-                  ),
-                  SizedBox(height: context.hp(3)),
-
-                  // Profile photo
-                  _buildProfilePhoto(),
-                  SizedBox(height: context.hp(3.5)),
-
-                  // Basic info
-                  _sectionTitle('Basic Info'),
-                  _buildTextField(
-                    controller: _usernameCtrl,
-                    hint: AppData.profileUsernameHint,
-                    label: AppData.profileUsername,
-                    errorText: _usernameError,
-                    formatters: [
-                      FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z0-9_]')),
-                      LengthLimitingTextInputFormatter(20),
-                    ],
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  SizedBox(height: context.hp(1.8)),
-                  _buildTextField(
-                    controller: _fullNameCtrl,
-                    hint: AppData.profileFullNameHint,
-                    label: AppData.profileFullName,
-                    errorText: _fullNameError,
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  SizedBox(height: context.hp(1.8)),
-                  _buildDobField(),
-                  SizedBox(height: context.hp(3.5)),
-
-                  // Bio
-                  _sectionTitle('About You'),
-                  _buildTextField(
-                    controller: _bioCtrl,
-                    hint: AppData.profileBioHint,
-                    label: AppData.profileBio,
-                    multiline: true,
-                    maxLength: 120,
-                  ),
-                  SizedBox(height: context.hp(3.5)),
-
-                  // Food preference
-                  _sectionTitle(AppData.profileFoodType),
-                  _buildFoodTypeToggle(),
-                  if (_foodTypeError != null) ...[
-                    SizedBox(height: context.hp(0.6)),
-                    _errorText(_foodTypeError!),
-                  ],
-                  SizedBox(height: context.hp(3.5)),
-
-                  // Cuisines
-                  _sectionTitle(AppData.profileCuisines),
-                  Text(
-                    AppData.profileCuisinesHint,
-                    style: AppTextStyles.secondary.copyWith(
-                        fontSize: context.sp(12)),
-                  ),
-                  SizedBox(height: context.hp(1.2)),
-                  _buildCuisineGrid(),
-                  if (_cuisineError != null) ...[
-                    SizedBox(height: context.hp(0.8)),
-                    _errorText(_cuisineError!),
-                  ],
-                  SizedBox(height: context.hp(3.5)),
-
-                  // Location
-                  _sectionTitle(AppData.profileLocation),
-                  _buildTextField(
-                    controller: _locationCtrl,
-                    hint: AppData.profileLocationHint,
-                    label: AppData.profileLocation,
-                    errorText: _locationError,
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  if (_locationError != null) ...[
-                    SizedBox(height: context.hp(0.6)),
-                    _errorText(_locationError!),
-                  ],
+                  const CircularProgressIndicator(color: AppColors.primary),
                   SizedBox(height: context.hp(2)),
+                  Text(
+                    _stageLabel(notifier.stage),
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: Colors.white,
+                      fontSize: context.sp(14),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-
-          // Sticky submit button
-          Container(
-            color: AppColors.background,
-            padding: EdgeInsets.fromLTRB(
-              context.wp(6),
-              context.hp(1.5),
-              context.wp(6),
-              context.hp(3) + MediaQuery.of(context).padding.bottom,
-            ),
-            child: AppGradientButton(
-              label: AppData.profileComplete,
-              onTap: _submit,
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
-  // ── Section helpers ─────────────────────────────────────────────────────────
+  String _stageLabel(ProfileUpdateStage stage) {
+    switch (stage) {
+      case ProfileUpdateStage.gettingUrl:
+        return 'Preparing upload…';
+      case ProfileUpdateStage.uploadingAvatar:
+        return 'Uploading photo…';
+      case ProfileUpdateStage.updating:
+        return 'Saving profile…';
+      default:
+        return '';
+    }
+  }
+
+  Widget _buildSubmitButton(ProfileUpdateState notifier) {
+    if (notifier.isLoading) {
+      return AppGradientButton(label: AppData.profileComplete, onTap: null);
+    }
+    return AppGradientButton(label: AppData.profileComplete, onTap: _submit);
+  }
+
+  // ── Section helpers ──────────────────────────────────────────────────────────
 
   Widget _sectionTitle(String text) {
     return Padding(
@@ -310,9 +492,52 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  // ── Profile photo ───────────────────────────────────────────────────────────
+  // ── Read-only field ──────────────────────────────────────────────────────────
+
+  Widget _buildReadOnlyField({required String label, required String value}) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.wp(4),
+        vertical: context.hp(1.8),
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE0E0E0), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: AppColors.greyDark,
+              fontSize: context.sp(12),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: context.sp(15),
+              color: AppColors.greyDark,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Profile photo ────────────────────────────────────────────────────────────
 
   Widget _buildProfilePhoto() {
+    final hasLocal = _profileImage != null;
+    final hasRemote = _existingAvatarUrl != null;
+    final hasImage = hasLocal || hasRemote;
+
     return Center(
       child: GestureDetector(
         onTap: _pickImage,
@@ -324,23 +549,33 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: _profileImage != null
-                      ? AppColors.primary
-                      : const Color(0xFFE0E0E0),
-                  width: _profileImage != null ? 3 : 2,
+                  color: hasImage ? AppColors.primary : const Color(0xFFE0E0E0),
+                  width: hasImage ? 3 : 2,
                 ),
                 color: const Color(0xFFF5F0FF),
               ),
               child: ClipOval(
-                child: _profileImage != null
+                child: hasLocal
                     ? Image.file(_profileImage!, fit: BoxFit.cover)
-                    : Center(
-                        child: Icon(
-                          Icons.person_rounded,
-                          color: AppColors.grey,
-                          size: context.wp(10),
-                        ),
-                      ),
+                    : hasRemote
+                        ? Image.network(
+                            _existingAvatarUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Icon(
+                                Icons.person_rounded,
+                                color: AppColors.grey,
+                                size: context.wp(10),
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: Icon(
+                              Icons.person_rounded,
+                              color: AppColors.grey,
+                              size: context.wp(10),
+                            ),
+                          ),
               ),
             ),
             Positioned(
@@ -366,7 +601,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  // ── Text field ──────────────────────────────────────────────────────────────
+  // ── Text field ───────────────────────────────────────────────────────────────
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -450,7 +685,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  // ── DOB field ───────────────────────────────────────────────────────────────
+  // ── DOB field ────────────────────────────────────────────────────────────────
 
   Widget _buildDobField() {
     final formatted = _dob != null
@@ -499,7 +734,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                           fontSize: context.sp(12),
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         formatted ?? AppData.profileDobHint,
                         style: TextStyle(
@@ -527,7 +762,70 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  // ── Food type toggle ────────────────────────────────────────────────────────
+  // ── Location field ───────────────────────────────────────────────────────────
+
+  Widget _buildLocationField() {
+    final hasError = _locationError != null;
+    return GestureDetector(
+      onTap: _openLocationPicker,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.wp(4),
+          vertical: context.hp(1.9),
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: hasError ? Colors.red.shade400 : const Color(0xFFE0E0E0),
+            width: hasError ? 2 : 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppData.profileLocation,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: AppColors.greyDark,
+                      fontSize: context.sp(12),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _selectedLocation?.address ?? AppData.profileLocationHint,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: context.sp(15),
+                      color: _selectedLocation != null
+                          ? Colors.black87
+                          : AppColors.grey,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.place_rounded, color: AppColors.grey, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Food type toggle ─────────────────────────────────────────────────────────
 
   Widget _buildFoodTypeToggle() {
     return Row(
@@ -587,7 +885,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  // ── Cuisine grid ────────────────────────────────────────────────────────────
+  // ── Cuisine grid ─────────────────────────────────────────────────────────────
 
   Widget _buildCuisineGrid() {
     final tileWidth =
@@ -609,17 +907,14 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             width: tileWidth,
-            padding: EdgeInsets.symmetric(
-              vertical: context.hp(1.5),
-            ),
+            padding: EdgeInsets.symmetric(vertical: context.hp(1.5)),
             decoration: BoxDecoration(
               color: selected
                   ? AppColors.primary.withValues(alpha: 0.08)
                   : Colors.white,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color:
-                    selected ? AppColors.primary : const Color(0xFFE0E0E0),
+                color: selected ? AppColors.primary : const Color(0xFFE0E0E0),
                 width: selected ? 2 : 1.5,
               ),
             ),
@@ -635,10 +930,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: context.sp(13),
-                    fontWeight: selected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    color: selected ? AppColors.primary : AppColors.greyDark,
+                    fontWeight:
+                        selected ? FontWeight.bold : FontWeight.normal,
+                    color:
+                        selected ? AppColors.primary : AppColors.greyDark,
                   ),
                 ),
               ],
@@ -648,5 +943,4 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       }),
     );
   }
-
 }
