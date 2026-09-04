@@ -7,7 +7,7 @@ part of 'create_post_provider.dart';
 // **************************************************************************
 
 String _$createPostNotifierHash() =>
-    r'3af440195db8945703d844ad3bdb5efab36273a0';
+    r'52c778620559ce00c34493ce3151586db541ddfa';
 
 /// See also [CreatePostNotifier].
 @ProviderFor(CreatePostNotifier)

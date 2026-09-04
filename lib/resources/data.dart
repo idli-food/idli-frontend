@@ -137,6 +137,9 @@ class AppData {
   // Create Post
   static const String createPostTitle = 'Create Post';
   static const String createPostBtn = 'Post';
+  static const String createPostNext = 'Next';
+  static const String createPostStep2Title = 'Tell us about the wonderful meal you had';
+  static const String createPostStep3Title = 'Now tell us about the experience you had';
   static const String createPostPosting = 'Posting…';
   static const String createPostMediaLabel = 'Add photo or video';
   static const String createPostPhotoBtn = 'Photo';
@@ -146,6 +149,10 @@ class AppData {
   static const String createPostTitleHint = 'e.g. Best Shawarma in TVM';
   static const String createPostDescLabel = 'DESCRIPTION';
   static const String createPostDescHint = 'Tell us about this dish…';
+  static const String createPostHotelLabel = 'RESTAURANT';
+  static const String createPostHotelPlaceholder = 'Select a hotel';
+  static const String createPostHotelSheetTitle = 'Select a hotel';
+  static const String createPostHotelSearchHint = 'Search hotels';
   static const String createPostLocationLabel = 'LOCATION';
   static const String createPostLocationPlaceholder = 'Coming soon';
   static const String createPostLocationBadge = 'Soon';
@@ -155,6 +162,14 @@ class AppData {
   static const String createPostStageUploading = 'Uploading';
   static const String createPostStagePublishing = 'Publishing';
   static const String createPostErrorGeneric = 'Something went wrong. Please try again.';
+  static const String createPostRatingSectionLabel = 'RATE YOUR VISIT';
+  static const Map<String, String> createPostRatingLabels = {
+    'food': 'Food',
+    'service': 'Service',
+    'cleanliness': 'Cleanliness',
+    'value': 'Value',
+  };
+  static const String createPostReviewHint = 'Short review (max 100 chars)';
 
   // Home / Feed
   static const String homeCity = 'Tiruvananthapuram';

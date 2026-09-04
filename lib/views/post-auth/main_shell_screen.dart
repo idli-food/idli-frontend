@@ -26,11 +26,14 @@ class _MainShellScreenState extends State<MainShellScreen> {
     const ProfileScreen(),
   ];
 
-  void _onTabChange(int index) {
+  Future<void> _onTabChange(int index) async {
     if (index == 2) {
-      Navigator.of(context).push(
+      final posted = await Navigator.of(context).push<bool>(
         MaterialPageRoute(builder: (_) => const CreateScreen()),
       );
+      if (posted == true && mounted) {
+        setState(() => _selectedIndex = 0);
+      }
       return;
     }
     // Refresh saved posts every time the Saved tab is tapped

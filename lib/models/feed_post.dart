@@ -1,3 +1,21 @@
+class PostRating {
+  final String category; // 'food' | 'service' | 'cleanliness' | 'value'
+  final int score;
+  final String review;
+
+  const PostRating({
+    required this.category,
+    required this.score,
+    required this.review,
+  });
+
+  factory PostRating.fromJson(Map<String, dynamic> json) => PostRating(
+        category: json['category'] as String,
+        score: (json['score'] as num).toInt(),
+        review: (json['review'] as String?) ?? '',
+      );
+}
+
 class FeedPost {
   final String id;
   final String title;
@@ -6,6 +24,7 @@ class FeedPost {
   final String description;
   final String? mediaUrl;
   final String? thumbnailUrl;
+  final String? hotelName;
   final String? mediaType;
   final int likeCount;
   final double avgRating;
@@ -16,7 +35,8 @@ class FeedPost {
   final int commentCount;
   final double? latitude;
   final double? longitude;
-  final int? myRating;
+  final bool isMine;
+  final List<PostRating> ratings;
 
   const FeedPost({
     required this.id,
@@ -26,6 +46,7 @@ class FeedPost {
     required this.description,
     this.mediaUrl,
     this.thumbnailUrl,
+    this.hotelName,
     this.mediaType,
     required this.likeCount,
     required this.avgRating,
@@ -36,7 +57,8 @@ class FeedPost {
     this.commentCount = 0,
     this.latitude,
     this.longitude,
-    this.myRating,
+    this.isMine = false,
+    this.ratings = const [],
   });
 
   bool get isVideo {
@@ -57,6 +79,7 @@ class FeedPost {
       description: json['description'] as String,
       mediaUrl: json['media_url'] as String?,
       thumbnailUrl: json['thumbnail_url'] as String?,
+      hotelName: json['hotel_name'] as String?,
       mediaType: json['media_type'] as String?,
       likeCount: (json['like_count'] as num).toInt(),
       avgRating: (json['avg_rating'] as num).toDouble(),
@@ -67,7 +90,11 @@ class FeedPost {
       commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
       latitude: (loc?['latitude'] as num?)?.toDouble(),
       longitude: (loc?['longitude'] as num?)?.toDouble(),
-      myRating: (json['my_rating'] as num?)?.toInt(),
+      isMine: json['is_mine'] as bool? ?? false,
+      ratings: (json['ratings'] as List<dynamic>?)
+              ?.map((e) => PostRating.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
   }
 }

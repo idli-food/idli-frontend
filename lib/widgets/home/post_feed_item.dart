@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import '../../models/comment.dart';
 import '../../models/feed_post.dart';
+import '../../providers/feed_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../resources/app_theme.dart';
 import '../../services/post_service.dart';
@@ -30,10 +32,11 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
   late bool _saved;
   late int _likeCount;
   late int _commentCount;
-  late int? _myRating;
   bool _likeLoading = false;
   bool _saveLoading = false;
   bool _ratingLoading = false;
+  bool _expanded = false;
+  bool _muted = false;
   final _service = PostService();
 
   @override
@@ -43,35 +46,16 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
     _saved = widget.post.isSaved;
     _likeCount = widget.post.likeCount;
     _commentCount = widget.post.commentCount;
-    _myRating = widget.post.myRating;
-  }
-
-  Future<void> _submitRating(int stars) async {
-    if (_ratingLoading || _myRating != null) return;
-    setState(() {
-      _myRating = stars;
-      _ratingLoading = true;
-    });
-    try {
-      await _service.ratePost(widget.post.id, stars);
-    } catch (_) {
-      if (mounted) setState(() => _myRating = null);
-    } finally {
-      if (mounted) setState(() => _ratingLoading = false);
-    }
   }
 
   Future<void> _deleteRating() async {
-    if (_ratingLoading || _myRating == null) return;
-    final previous = _myRating;
-    setState(() {
-      _myRating = null;
-      _ratingLoading = true;
-    });
+    if (_ratingLoading) return;
+    setState(() => _ratingLoading = true);
     try {
       await _service.unratePost(widget.post.id);
+      if (mounted) ref.invalidate(feedProvider);
     } catch (_) {
-      if (mounted) setState(() => _myRating = previous);
+      // leave the feed as-is on failure
     } finally {
       if (mounted) setState(() => _ratingLoading = false);
     }
@@ -178,8 +162,11 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
               post: widget.post,
               gradientPair: gradientPair,
               likeCount: _likeCount,
-              myRating: _myRating,
-              onDeleteRating: _deleteRating),
+              showDeleteRating:
+                  widget.post.isMine && widget.post.ratings.isNotEmpty,
+              onDeleteRating: _deleteRating,
+              muted: _muted,
+              onToggleMute: () => setState(() => _muted = !_muted)),
 
           SizedBox(height: context.hp(1.5)),
 
@@ -194,25 +181,27 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
             onLocation: _openDirections,
           ),
 
-          _RatingRow(myRating: _myRating, onRate: _submitRating),
-
           SizedBox(height: context.hp(1.2)),
 
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Text(
-                  widget.post.title,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: context.sp(17),
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.dark,
-                    height: 1.2,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _expanded = !_expanded),
+                  child: Text(
+                    widget.post.title,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: context.sp(17),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.dark,
+                      height: 1.2,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
                 ),
               ),
               SizedBox(width: context.wp(2)),
@@ -229,11 +218,16 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
               fontSize: context.sp(13),
               height: 1.5,
             ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
+            maxLines: _expanded ? null : 3,
+            overflow: _expanded ? TextOverflow.clip : TextOverflow.ellipsis,
           ),
 
           SizedBox(height: context.hp(0.9)),
+
+          if (_expanded && widget.post.ratings.isNotEmpty) ...[
+            _RatingBreakdown(ratings: widget.post.ratings),
+            SizedBox(height: context.hp(0.3)),
+          ],
 
           _TagPill(tag: '#${widget.post.title.replaceAll(' ', '').toLowerCase()}'),
         ],
@@ -248,15 +242,19 @@ class _PostCard extends StatelessWidget {
   final FeedPost post;
   final List<Color> gradientPair;
   final int likeCount;
-  final int? myRating;
+  final bool showDeleteRating;
   final VoidCallback onDeleteRating;
+  final bool muted;
+  final VoidCallback onToggleMute;
 
   const _PostCard(
       {required this.post,
       required this.gradientPair,
       required this.likeCount,
-      required this.myRating,
-      required this.onDeleteRating});
+      required this.showDeleteRating,
+      required this.onDeleteRating,
+      required this.muted,
+      required this.onToggleMute});
 
   @override
   Widget build(BuildContext context) {
@@ -291,7 +289,11 @@ class _PostCard extends StatelessWidget {
               if (post.mediaUrl != null)
                 Positioned.fill(
                   child: post.isVideo
-                      ? _VideoMedia(url: post.mediaUrl!)
+                      ? _VideoMedia(
+                          url: post.mediaUrl!,
+                          muted: muted,
+                          onToggleMute: onToggleMute,
+                        )
                       : Image.network(
                           post.mediaUrl!,
                           fit: BoxFit.cover,
@@ -307,7 +309,7 @@ class _PostCard extends StatelessWidget {
                 right: 0,
                 child: _TopOverlay(
                   post: post,
-                  myRating: myRating,
+                  showDeleteRating: showDeleteRating,
                   onDeleteRating: onDeleteRating,
                 ),
               ),
@@ -318,6 +320,29 @@ class _PostCard extends StatelessWidget {
                 right: 0,
                 child: _BottomOverlay(username: post.username, likeCount: likeCount),
               ),
+
+              if (post.isVideo)
+                Positioned(
+                  right: context.wp(3),
+                  bottom: context.hp(2),
+                  child: GestureDetector(
+                    onTap: onToggleMute,
+                    child: Container(
+                      padding: EdgeInsets.all(context.wp(2)),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        muted
+                            ? Icons.volume_off_rounded
+                            : Icons.volume_up_rounded,
+                        color: Colors.white,
+                        size: context.sp(18),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -346,11 +371,11 @@ class _GradientBackground extends StatelessWidget {
 
 class _TopOverlay extends StatelessWidget {
   final FeedPost post;
-  final int? myRating;
+  final bool showDeleteRating;
   final VoidCallback onDeleteRating;
   const _TopOverlay(
       {required this.post,
-      required this.myRating,
+      required this.showDeleteRating,
       required this.onDeleteRating});
 
   @override
@@ -414,10 +439,38 @@ class _TopOverlay extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
+                if (post.hotelName != null &&
+                    post.hotelName != post.username) ...[
+                  SizedBox(height: context.hp(0.3)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.location_on_rounded,
+                        size: context.sp(11),
+                        color: Colors.white.withValues(alpha: 0.75),
+                      ),
+                      SizedBox(width: context.wp(1)),
+                      Flexible(
+                        child: Text(
+                          post.hotelName!,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: Colors.white.withValues(alpha: 0.75),
+                            fontSize: context.sp(11),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
-          if (myRating != null)
+          if (showDeleteRating)
             PopupMenuButton<String>(
               icon: Icon(
                 Icons.more_vert,
@@ -660,48 +713,69 @@ class _RatingBadge extends StatelessWidget {
   }
 }
 
-// ── Rating row (tap to rate) ─────────────────────────────────────────────────
+// ── Rating breakdown (per-category scores + reviews) ─────────────────────────
 
-class _RatingRow extends StatelessWidget {
-  final int? myRating;
-  final ValueChanged<int> onRate;
-  const _RatingRow({required this.myRating, required this.onRate});
+const _ratingCategoryLabels = {
+  'food': 'Food',
+  'service': 'Service',
+  'cleanliness': 'Cleanliness',
+  'value': 'Value',
+};
+
+class _RatingBreakdown extends StatelessWidget {
+  final List<PostRating> ratings;
+  const _RatingBreakdown({required this.ratings});
 
   @override
   Widget build(BuildContext context) {
-    final rated = myRating != null;
     return Padding(
       padding: EdgeInsets.symmetric(vertical: context.hp(0.9)),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            rated ? 'Your rating' : 'Tap to rate',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: context.sp(11),
-              fontWeight: FontWeight.w500,
-              color: AppColors.grey,
-            ),
-          ),
-          SizedBox(width: context.wp(2)),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(5, (i) {
-              final n = i + 1;
-              final filled = n <= (myRating ?? 0);
-              return GestureDetector(
-                onTap: rated ? null : () => onRate(n),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.wp(0.3)),
-                  child: Icon(
-                    filled ? Icons.star_rounded : Icons.star_border_rounded,
-                    size: context.sp(20),
-                    color: filled ? AppColors.accent : AppColors.grey,
+          for (final r in ratings) ...[
+            Row(
+              children: [
+                SizedBox(
+                  width: context.wp(24),
+                  child: Text(
+                    _ratingCategoryLabels[r.category] ?? r.category,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: context.sp(11),
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.dark,
+                    ),
                   ),
                 ),
-              );
-            }),
-          ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(5, (i) {
+                    final filled = (i + 1) <= r.score;
+                    return Icon(
+                      filled ? Icons.star_rounded : Icons.star_border_rounded,
+                      size: context.sp(15),
+                      color: filled ? AppColors.accent : AppColors.grey,
+                    );
+                  }),
+                ),
+              ],
+            ),
+            if (r.review.trim().isNotEmpty)
+              Padding(
+                padding: EdgeInsets.only(
+                    left: context.wp(24), bottom: context.hp(0.6)),
+                child: Text(
+                  r.review,
+                  style: AppTextStyles.secondary.copyWith(
+                    fontSize: context.sp(11),
+                    height: 1.3,
+                  ),
+                ),
+              )
+            else
+              SizedBox(height: context.hp(0.6)),
+          ],
         ],
       ),
     );
@@ -744,7 +818,13 @@ class _TagPill extends StatelessWidget {
 
 class _VideoMedia extends StatefulWidget {
   final String url;
-  const _VideoMedia({required this.url});
+  final bool muted;
+  final VoidCallback onToggleMute;
+  const _VideoMedia({
+    required this.url,
+    required this.muted,
+    required this.onToggleMute,
+  });
 
   @override
   State<_VideoMedia> createState() => _VideoMediaState();
@@ -753,6 +833,7 @@ class _VideoMedia extends StatefulWidget {
 class _VideoMediaState extends State<_VideoMedia> {
   late final VideoPlayerController _controller;
   bool _initialized = false;
+  double _visibleFraction = 0;
 
   @override
   void initState() {
@@ -768,18 +849,37 @@ class _VideoMediaState extends State<_VideoMedia> {
       _initialized = false;
       _initController(widget.url);
     }
+    if (old.muted != widget.muted) {
+      _controller.setVolume(widget.muted ? 0 : 1);
+    }
   }
 
   void _initController(String url) {
     _controller = VideoPlayerController.networkUrl(Uri.parse(url))
       ..setLooping(true)
-      ..setVolume(0)
+      ..setVolume(widget.muted ? 0 : 1)
       ..initialize().then((_) {
         if (mounted) {
           setState(() => _initialized = true);
-          _controller.play();
+          // Only start if the post is already mostly on screen.
+          _applyVisibility(_visibleFraction);
         }
       });
+  }
+
+  // Play only while the post is mostly visible; pause and rewind once it has
+  // scrolled mostly out of view so returning to it replays from the start.
+  void _applyVisibility(double fraction) {
+    _visibleFraction = fraction;
+    if (!_initialized) return;
+    if (fraction >= 0.6) {
+      if (!_controller.value.isPlaying) _controller.play();
+    } else if (fraction < 0.3) {
+      if (_controller.value.isPlaying) {
+        _controller.pause();
+        _controller.seekTo(Duration.zero);
+      }
+    }
   }
 
   @override
@@ -790,15 +890,25 @@ class _VideoMediaState extends State<_VideoMedia> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_initialized) return const SizedBox.shrink();
-    return FittedBox(
-      fit: BoxFit.cover,
-      clipBehavior: Clip.hardEdge,
-      child: SizedBox(
-        width: _controller.value.size.width,
-        height: _controller.value.size.height,
-        child: VideoPlayer(_controller),
-      ),
+    return VisibilityDetector(
+      key: ValueKey('video-${widget.url}'),
+      onVisibilityChanged: (info) {
+        if (mounted) _applyVisibility(info.visibleFraction);
+      },
+      child: !_initialized
+          ? const SizedBox.shrink()
+          : GestureDetector(
+              onTap: widget.onToggleMute,
+              child: FittedBox(
+                fit: BoxFit.cover,
+                clipBehavior: Clip.hardEdge,
+                child: SizedBox(
+                  width: _controller.value.size.width,
+                  height: _controller.value.size.height,
+                  child: VideoPlayer(_controller),
+                ),
+              ),
+            ),
     );
   }
 }

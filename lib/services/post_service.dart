@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../models/comment.dart';
 import '../models/feed_post.dart';
+import '../models/hotel.dart';
 import '../models/saved_post.dart';
 import '../models/saved_thumb.dart';
 import '../utils/token_storage.dart';
@@ -161,25 +162,39 @@ class PostService {
     }
   }
 
+  Future<List<Hotel>> getHotels() async {
+    final uri = Uri.parse('$_base/hotel/list/');
+    debugPrint('[PostService] GET $uri');
+    final headers = await _authHeaders();
+    final res = await _getWithRefresh(uri, headers);
+    debugPrint('[PostService] getHotels → ${res.statusCode}');
+    if (res.statusCode != 200) {
+      throw Exception('Failed to load hotels (${res.statusCode}): ${res.body}');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = body['data'] as List<dynamic>;
+    return list
+        .map((e) => Hotel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<void> createPost({
     required String title,
     required String description,
     required String mediaType,
     required String rawS3Key,
-    double latitude = 9.9312,
-    double longitude = 76.2673,
+    required int hotelId,
+    required List<Map<String, dynamic>> ratings,
   }) async {
     final url = '$_base/post/';
     final payload = <String, dynamic>{
+      'hotel': hotelId,
       'title': title,
       'description': description,
       'media_type': mediaType,
       'raw_s3_key': rawS3Key,
       'status': 'published',
-      'location': {
-        'type': 'Point',
-        'coordinates': [longitude, latitude],
-      },
+      'ratings': ratings,
     };
     debugPrint('[PostService] POST $url  payload=${jsonEncode(payload)}');
     final headers = await _authHeaders();
@@ -323,21 +338,6 @@ class PostService {
     debugPrint('[PostService] unsavePost → ${res.statusCode}');
     if (res.statusCode != 200) {
       throw Exception('Unsave failed (${res.statusCode}): ${res.body}');
-    }
-  }
-
-  Future<void> ratePost(String postId, int stars) async {
-    final url = '$_base/post/$postId/rate/';
-    debugPrint('[PostService] POST $url');
-    final headers = await _authHeaders();
-    final res = await _postWithRefresh(
-      Uri.parse(url),
-      headers,
-      jsonEncode({'stars': stars}),
-    );
-    debugPrint('[PostService] ratePost → ${res.statusCode}');
-    if (res.statusCode != 201) {
-      throw Exception('Rate failed (${res.statusCode}): ${res.body}');
     }
   }
 
