@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import '../../models/comment.dart';
@@ -10,6 +9,7 @@ import '../../providers/profile_provider.dart';
 import '../../resources/app_theme.dart';
 import '../../services/post_service.dart';
 import '../../utils/responsive.dart';
+import '../../views/post-auth/post_location_screen.dart';
 
 const _cardGradients = [
   [Color(0xFF2C1B4E), Color(0xFF0D0820)],
@@ -61,6 +61,93 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
     }
   }
 
+  Future<void> _editPost() async {
+    final titleController = TextEditingController(text: widget.post.title);
+    final descriptionController =
+        TextEditingController(text: widget.post.description);
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit post'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Title'),
+            ),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(labelText: 'Description'),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (saved != true) return;
+
+    try {
+      await _service.updatePost(
+        widget.post.id,
+        title: titleController.text.trim(),
+        description: descriptionController.text.trim(),
+      );
+      if (mounted) ref.invalidate(feedProvider);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update post')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deletePost() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete post'),
+        content: const Text('This post will be deleted permanently.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _service.deletePost(widget.post.id);
+      if (mounted) ref.invalidate(feedProvider);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to delete post')),
+        );
+      }
+    }
+  }
+
   Future<void> _toggleLike() async {
     if (_likeLoading) return;
     final wasLiked = _liked;
@@ -105,29 +192,24 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
     }
   }
 
-  Future<void> _openDirections() async {
+  void _showLocation() {
     final lat = widget.post.latitude;
     final lon = widget.post.longitude;
     if (lat == null || lon == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No location available for this post')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No location available for this post')),
+      );
       return;
     }
-    final url = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lon&travelmode=driving',
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PostLocationScreen(
+          lat: lat,
+          lon: lon,
+          label: widget.post.hotelName ?? widget.post.title,
+        ),
+      ),
     );
-    if (!await canLaunchUrl(url)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open maps')),
-        );
-      }
-      return;
-    }
-    await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
   void _openComments() {
@@ -165,6 +247,8 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
               showDeleteRating:
                   widget.post.isMine && widget.post.ratings.isNotEmpty,
               onDeleteRating: _deleteRating,
+              onEditPost: _editPost,
+              onDeletePost: _deletePost,
               muted: _muted,
               onToggleMute: () => setState(() => _muted = !_muted)),
 
@@ -178,7 +262,7 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
             onLike: _toggleLike,
             onSave: _toggleSave,
             onComment: _openComments,
-            onLocation: _openDirections,
+            onLocation: _showLocation,
           ),
 
           SizedBox(height: context.hp(1.2)),
@@ -244,6 +328,8 @@ class _PostCard extends StatelessWidget {
   final int likeCount;
   final bool showDeleteRating;
   final VoidCallback onDeleteRating;
+  final VoidCallback onEditPost;
+  final VoidCallback onDeletePost;
   final bool muted;
   final VoidCallback onToggleMute;
 
@@ -253,6 +339,8 @@ class _PostCard extends StatelessWidget {
       required this.likeCount,
       required this.showDeleteRating,
       required this.onDeleteRating,
+      required this.onEditPost,
+      required this.onDeletePost,
       required this.muted,
       required this.onToggleMute});
 
@@ -311,6 +399,8 @@ class _PostCard extends StatelessWidget {
                   post: post,
                   showDeleteRating: showDeleteRating,
                   onDeleteRating: onDeleteRating,
+                  onEditPost: onEditPost,
+                  onDeletePost: onDeletePost,
                 ),
               ),
 
@@ -373,10 +463,14 @@ class _TopOverlay extends StatelessWidget {
   final FeedPost post;
   final bool showDeleteRating;
   final VoidCallback onDeleteRating;
+  final VoidCallback onEditPost;
+  final VoidCallback onDeletePost;
   const _TopOverlay(
       {required this.post,
       required this.showDeleteRating,
-      required this.onDeleteRating});
+      required this.onDeleteRating,
+      required this.onEditPost,
+      required this.onDeletePost});
 
   @override
   Widget build(BuildContext context) {
@@ -470,7 +564,7 @@ class _TopOverlay extends StatelessWidget {
               ],
             ),
           ),
-          if (showDeleteRating)
+          if (post.isMine)
             PopupMenuButton<String>(
               icon: Icon(
                 Icons.more_vert,
@@ -478,13 +572,29 @@ class _TopOverlay extends StatelessWidget {
                 size: context.sp(22),
               ),
               onSelected: (value) {
-                if (value == 'delete_rating') onDeleteRating();
+                switch (value) {
+                  case 'delete_rating':
+                    onDeleteRating();
+                  case 'edit_post':
+                    onEditPost();
+                  case 'delete_post':
+                    onDeletePost();
+                }
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: 'delete_rating',
-                  child: Text('Delete rating'),
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'edit_post',
+                  child: Text('Edit post'),
                 ),
+                const PopupMenuItem(
+                  value: 'delete_post',
+                  child: Text('Delete post'),
+                ),
+                if (showDeleteRating)
+                  const PopupMenuItem(
+                    value: 'delete_rating',
+                    child: Text('Delete rating'),
+                  ),
               ],
             )
           else

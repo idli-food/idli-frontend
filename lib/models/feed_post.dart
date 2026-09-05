@@ -71,16 +71,22 @@ class FeedPost {
     final user = json['user'] as Map<String, dynamic>;
     final avatarUrl = json['avatar'] as String?;
     final loc = json['location_point'] as Map<String, dynamic>?;
+    final coordinates = loc?['coordinates'] as List<dynamic>?;
+    final mediaList = json['media'] as List<dynamic>?;
+    final firstMedia = (mediaList != null && mediaList.isNotEmpty)
+        ? mediaList.first as Map<String, dynamic>
+        : null;
     return FeedPost(
       id: json['id'].toString(),
       title: json['title'] as String,
       username: user['username'] as String,
       avatarUrl: avatarUrl,
       description: json['description'] as String,
-      mediaUrl: json['media_url'] as String?,
-      thumbnailUrl: json['thumbnail_url'] as String?,
+      mediaUrl: (firstMedia?['media_url'] ?? json['media_url']) as String?,
+      thumbnailUrl:
+          (firstMedia?['thumbnail_url'] ?? json['thumbnail_url']) as String?,
       hotelName: json['hotel_name'] as String?,
-      mediaType: json['media_type'] as String?,
+      mediaType: (firstMedia?['content_type'] ?? json['media_type']) as String?,
       likeCount: (json['like_count'] as num).toInt(),
       avgRating: (json['avg_rating'] as num).toDouble(),
       compositeScore: (json['composite_score'] as num).toDouble(),
@@ -88,8 +94,12 @@ class FeedPost {
       isLiked: json['is_liked'] as bool? ?? false,
       isSaved: json['is_saved'] as bool? ?? false,
       commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
-      latitude: (loc?['latitude'] as num?)?.toDouble(),
-      longitude: (loc?['longitude'] as num?)?.toDouble(),
+      latitude: (coordinates != null && coordinates.length > 1)
+          ? (coordinates[1] as num).toDouble()
+          : null,
+      longitude: (coordinates != null && coordinates.isNotEmpty)
+          ? (coordinates[0] as num).toDouble()
+          : null,
       isMine: json['is_mine'] as bool? ?? false,
       ratings: (json['ratings'] as List<dynamic>?)
               ?.map((e) => PostRating.fromJson(e as Map<String, dynamic>))
