@@ -8,7 +8,7 @@ class SavedPost {
   final String? thumbnailUrl;
   final String? mediaUrl;
   final String? mediaType;
-  final double avgRating;
+  final double? avgRating;
   final double compositeScore;
   final int likeCount;
   final int commentCount;
@@ -24,7 +24,7 @@ class SavedPost {
     this.thumbnailUrl,
     this.mediaUrl,
     this.mediaType,
-    required this.avgRating,
+    this.avgRating,
     required this.compositeScore,
     required this.likeCount,
     required this.commentCount,
@@ -48,7 +48,7 @@ class SavedPost {
           (firstMedia?['thumbnail_url'] ?? json['thumbnail_url']) as String?,
       mediaUrl: (firstMedia?['media_url'] ?? json['media_url']) as String?,
       mediaType: (firstMedia?['content_type'] ?? json['media_type']) as String?,
-      avgRating: (json['avg_rating'] as num).toDouble(),
+      avgRating: (json['avg_rating'] as num?)?.toDouble(),
       compositeScore: (json['composite_score'] as num?)?.toDouble() ?? 0,
       likeCount: (json['like_count'] as num?)?.toInt() ?? 0,
       commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,

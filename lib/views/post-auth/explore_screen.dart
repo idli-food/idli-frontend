@@ -82,7 +82,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         lon: loc.longitude,
         query: _query,
       );
-      posts.sort((a, b) => b.avgRating.compareTo(a.avgRating));
+      posts.sort((a, b) => (b.avgRating ?? 0).compareTo(a.avgRating ?? 0));
       if (mounted) setState(() => _posts = posts);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());

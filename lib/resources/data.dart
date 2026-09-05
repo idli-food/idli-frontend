@@ -105,6 +105,7 @@ class AppData {
 
   // Nav bar
   static const String navHome = 'Home';
+  static const String navInstant = 'Instant';
   static const String navExplore = 'Explore';
   static const String navProfile = 'Profile';
 
@@ -170,7 +171,7 @@ class AppData {
   static const String createPostStageUploading = 'Uploading';
   static const String createPostStagePublishing = 'Publishing';
   static const String createPostErrorGeneric = 'Something went wrong. Please try again.';
-  static const String createPostRatingSectionLabel = 'RATE YOUR VISIT';
+  static const String createPostRatingSectionLabel = 'RATE YOUR VISIT (OPTIONAL)';
   static const Map<String, String> createPostRatingLabels = {
     'food': 'Food',
     'service': 'Service',

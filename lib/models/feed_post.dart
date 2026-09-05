@@ -11,7 +11,7 @@ class PostRating {
 
   factory PostRating.fromJson(Map<String, dynamic> json) => PostRating(
         category: json['category'] as String,
-        score: (json['score'] as num).toInt(),
+        score: (json['score'] as num?)?.toInt() ?? 0,
         review: (json['review'] as String?) ?? '',
       );
 }
@@ -26,7 +26,7 @@ class FeedPost {
   final String? hotelName;
   final String? mediaType;
   final int likeCount;
-  final double avgRating;
+  final double? avgRating;
   final double compositeScore;
   final DateTime createdAt;
   final bool isLiked;
@@ -47,7 +47,7 @@ class FeedPost {
     this.hotelName,
     this.mediaType,
     required this.likeCount,
-    required this.avgRating,
+    this.avgRating,
     required this.compositeScore,
     required this.createdAt,
     this.isLiked = false,
@@ -85,7 +85,7 @@ class FeedPost {
       hotelName: json['hotel_name'] as String?,
       mediaType: (firstMedia?['content_type'] ?? json['media_type']) as String?,
       likeCount: (json['like_count'] as num).toInt(),
-      avgRating: (json['avg_rating'] as num).toDouble(),
+      avgRating: (json['avg_rating'] as num?)?.toDouble(),
       compositeScore: (json['composite_score'] as num).toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
       isLiked: json['is_liked'] as bool? ?? false,

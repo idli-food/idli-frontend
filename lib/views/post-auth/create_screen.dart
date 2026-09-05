@@ -13,8 +13,12 @@ import '../../utils/media_utils.dart';
 import '../../utils/responsive.dart';
 import '../../widgets/shared/app_gradient_button.dart';
 
+enum MediaPick { photo, video }
+
 class CreateScreen extends ConsumerStatefulWidget {
-  const CreateScreen({super.key});
+  final MediaPick? initialPick;
+
+  const CreateScreen({super.key, this.initialPick});
 
   @override
   ConsumerState<CreateScreen> createState() => _CreateScreenState();
@@ -25,6 +29,17 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
   final _picker = ImagePicker();
   final _pageController = PageController();
   int _step = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final pick = widget.initialPick;
+    if (pick != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pickMedia(isPhoto: pick == MediaPick.photo);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -60,7 +75,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const _HotelPickerSheet(),
+      builder: (_) => const HotelPickerSheet(),
     );
     if (hotel != null) {
       ref.read(createPostNotifierProvider.notifier).setHotel(hotel);
@@ -94,7 +109,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
     final state = ref.watch(createPostNotifierProvider);
     final canPost = state.selectedFile != null &&
         state.selectedHotel != null &&
-        state.ratingsComplete &&
+        state.ratingsValid &&
         !state.isLoading;
 
     final canGoDetails = state.selectedHotel != null;
@@ -706,14 +721,14 @@ class _HotelField extends StatelessWidget {
   }
 }
 
-class _HotelPickerSheet extends StatefulWidget {
-  const _HotelPickerSheet();
+class HotelPickerSheet extends StatefulWidget {
+  const HotelPickerSheet({super.key});
 
   @override
-  State<_HotelPickerSheet> createState() => _HotelPickerSheetState();
+  State<HotelPickerSheet> createState() => HotelPickerSheetState();
 }
 
-class _HotelPickerSheetState extends State<_HotelPickerSheet> {
+class HotelPickerSheetState extends State<HotelPickerSheet> {
   final _searchController = TextEditingController();
   List<Hotel> _hotels = [];
   bool _loading = true;
@@ -953,7 +968,7 @@ class _RatingSectionState extends ConsumerState<_RatingSection> {
         ),
         SizedBox(height: context.hp(1)),
         for (final category in ratingCategories) ...[
-          _RatingCategoryRow(
+          RatingCategoryRow(
             label: AppData.createPostRatingLabels[category]!,
             score: state.scores[category] ?? 0,
             controller: _controllers[category]!,
@@ -968,7 +983,7 @@ class _RatingSectionState extends ConsumerState<_RatingSection> {
   }
 }
 
-class _RatingCategoryRow extends StatelessWidget {
+class RatingCategoryRow extends StatelessWidget {
   final String label;
   final int score;
   final TextEditingController controller;
@@ -976,7 +991,8 @@ class _RatingCategoryRow extends StatelessWidget {
   final ValueChanged<int> onRate;
   final ValueChanged<String> onReview;
 
-  const _RatingCategoryRow({
+  const RatingCategoryRow({
+    super.key,
     required this.label,
     required this.score,
     required this.controller,

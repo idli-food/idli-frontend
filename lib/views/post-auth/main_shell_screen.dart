@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../widgets/app_nav_bar.dart';
 import 'feed_screen.dart';
+import 'instant_feed_screen.dart';
 import 'explore_screen.dart';
 import 'profile_screen.dart';
-import 'create_screen.dart';
+import 'camera_screen.dart';
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({super.key});
@@ -13,11 +14,12 @@ class MainShellScreen extends StatefulWidget {
 }
 
 class _MainShellScreenState extends State<MainShellScreen> {
-  // App-level tab indices: 0=Home, 1=Explore, 2=Create(+), 3=Profile
+  // App-level tab indices: 0=Home, 1=Instant, 2=Create(+), 3=Explore, 4=Profile
   int _selectedIndex = 0;
 
   List<Widget> get _screens => [
     const FeedScreen(),
+    const InstantFeedScreen(),
     const ExploreScreen(),
     const ProfileScreen(),
   ];
@@ -25,7 +27,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   Future<void> _onTabChange(int index) async {
     if (index == 2) {
       final posted = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(builder: (_) => const CreateScreen()),
+        MaterialPageRoute(builder: (_) => const CameraScreen()),
       );
       if (posted == true && mounted) {
         setState(() => _selectedIndex = 0);

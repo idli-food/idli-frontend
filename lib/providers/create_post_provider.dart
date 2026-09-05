@@ -36,16 +36,26 @@ class CreatePostState {
       stage == UploadStage.uploadingMedia ||
       stage == UploadStage.creatingPost;
 
-  bool get ratingsComplete =>
-      ratingCategories.every((c) => (scores[c] ?? 0) >= 1);
+  bool get hasAnyRating =>
+      ratingCategories.any((c) => (scores[c] ?? 0) >= 1);
 
-  List<Map<String, dynamic>> get ratingsPayload => ratingCategories
-      .map((c) => {
-            'category': c,
-            'score': scores[c],
-            'review': (reviews[c] ?? '').trim(),
-          })
-      .toList();
+  // Ratings are optional. If the user rates any category, every category
+  // must be scored so the backend gets a complete breakdown.
+  bool get ratingsValid {
+    if (!hasAnyRating) return true;
+    return ratingCategories.every((c) => (scores[c] ?? 0) >= 1);
+  }
+
+  List<Map<String, dynamic>>? get ratingsPayload {
+    if (!hasAnyRating) return null;
+    return ratingCategories
+        .map((c) => {
+              'category': c,
+              'score': scores[c],
+              'review': (reviews[c] ?? '').trim(),
+            })
+        .toList();
+  }
 
   CreatePostState copyWith({
     File? Function()? selectedFile,
@@ -90,12 +100,32 @@ class CreatePostNotifier extends _$CreatePostNotifier {
     state = state.copyWith(selectedHotel: () => hotel);
   }
 
+  Future<void> attemptAutoTagHotel(double lat, double lon) async {
+    debugPrint('[CreatePost] attemptAutoTagHotel lat=$lat lon=$lon '
+        'alreadyTagged=${state.selectedHotel != null}');
+    if (state.selectedHotel != null) return;
+    try {
+      final hotel = await _service.getNearestHotel(lat, lon);
+      debugPrint('[CreatePost] nearest hotel = ${hotel?.name}');
+      if (hotel != null && state.selectedHotel == null) {
+        setHotel(hotel);
+      }
+    } catch (e) {
+      debugPrint('[CreatePost] attemptAutoTagHotel failed: $e');
+      // Silent — falls back to the existing manual "Tag Hotel" flow.
+    }
+  }
+
   void setScore(String category, int score) {
     state = state.copyWith(scores: {...state.scores, category: score});
   }
 
   void setReview(String category, String review) {
     state = state.copyWith(reviews: {...state.reviews, category: review});
+  }
+
+  void clearMedia() {
+    state = state.copyWith(selectedFile: () => null);
   }
 
   void reset() => state = const CreatePostState();
@@ -109,10 +139,11 @@ class CreatePostNotifier extends _$CreatePostNotifier {
 
   Future<void> submit({
     required String description,
+    String? postType,
   }) async {
     final file = state.selectedFile;
     final hotel = state.selectedHotel;
-    if (file == null || hotel == null || !state.ratingsComplete) return;
+    if (file == null || hotel == null || !state.ratingsValid) return;
 
     debugPrint('[CreatePost] ▶ submit — file=${file.path}');
 
@@ -141,6 +172,8 @@ class CreatePostNotifier extends _$CreatePostNotifier {
         rawS3Key: key,
         hotelId: hotel.id,
         ratings: state.ratingsPayload,
+        postType: postType,
+        mediaCategory: postType == 'instant' ? 'instant' : null,
       );
       debugPrint('[CreatePost] ✓ post created successfully');
 

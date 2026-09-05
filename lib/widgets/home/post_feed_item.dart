@@ -261,13 +261,14 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
 
           SizedBox(height: context.hp(1.2)),
 
-          Align(
-            alignment: Alignment.centerRight,
-            child: _RatingBadge(
-                rating: widget.post.avgRating.toStringAsFixed(1)),
-          ),
-
-          SizedBox(height: context.hp(0.7)),
+          if (widget.post.avgRating != null) ...[
+            Align(
+              alignment: Alignment.centerRight,
+              child: _RatingBadge(
+                  rating: widget.post.avgRating!.toStringAsFixed(1)),
+            ),
+            SizedBox(height: context.hp(0.7)),
+          ],
 
           GestureDetector(
             behavior: HitTestBehavior.opaque,

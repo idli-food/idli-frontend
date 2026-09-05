@@ -140,6 +140,26 @@ class PostService {
         .toList();
   }
 
+  Future<List<FeedPost>> getInstantFeed() async {
+    final uri = Uri.parse('$_base/feed/instant/').replace(queryParameters: {
+      'limit': '100',
+    });
+    debugPrint('[PostService] GET $uri');
+    final headers = await _authHeaders();
+    final res = await _getWithRefresh(uri, headers);
+    if (res.statusCode != 200) {
+      throw Exception('Failed to load instant feed (${res.statusCode}): ${res.body}');
+    }
+    // The instant feed is DRF-paginated: { count, next, previous, results }.
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = (body['results'] as List<dynamic>?) ?? const [];
+    final seen = <String>{};
+    return list
+        .map((e) => FeedPost.fromJson(e as Map<String, dynamic>))
+        .where((p) => seen.add(p.id))
+        .toList();
+  }
+
   Future<({String uploadUrl, String key})> getUploadUrl(
     String fileName,
     String contentType,
@@ -198,27 +218,49 @@ class PostService {
         .toList();
   }
 
+  Future<Hotel?> getNearestHotel(double lat, double lon) async {
+    final url = '$_base/hotel/nearest/';
+    debugPrint('[PostService] POST $url  lat=$lat lon=$lon');
+    final headers = await _authHeaders();
+    final res = await _postWithRefresh(
+      Uri.parse(url),
+      headers,
+      jsonEncode({'latitude': lat, 'longitude': lon}),
+    );
+    debugPrint('[PostService] getNearestHotel → ${res.statusCode}  body=${res.body}');
+    if (res.statusCode == 404) return null;
+    if (res.statusCode != 200) {
+      throw Exception('Failed to find nearest hotel (${res.statusCode}): ${res.body}');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return Hotel.fromJson(body['data'] as Map<String, dynamic>);
+  }
+
   Future<void> createPost({
     required String description,
     required String mediaType,
     required String rawS3Key,
     required int hotelId,
-    required List<Map<String, dynamic>> ratings,
+    List<Map<String, dynamic>>? ratings,
+    String? postType,
+    String? mediaCategory,
   }) async {
     final url = '$_base/post/';
     final payload = <String, dynamic>{
       'hotel': hotelId,
       'description': description,
       'status': 'published',
-      'ratings': ratings,
+      if (ratings != null && ratings.isNotEmpty) 'ratings': ratings,
       'media': [
         {
           'content_type': mediaType,
-          'category': mediaType == 'video' ? 'video' : 'photos',
+          'category':
+              mediaCategory ?? (mediaType == 'video' ? 'video' : 'photos'),
           'position': 0,
           'media_key': rawS3Key,
         },
       ],
+      if (postType != null) 'post_type': postType,
     };
     debugPrint('[PostService] POST $url  payload=${jsonEncode(payload)}');
     final headers = await _authHeaders();
