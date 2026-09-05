@@ -18,7 +18,6 @@ class PostRating {
 
 class FeedPost {
   final String id;
-  final String title;
   final String username;
   final String? avatarUrl;
   final String description;
@@ -40,7 +39,6 @@ class FeedPost {
 
   const FeedPost({
     required this.id,
-    required this.title,
     required this.username,
     this.avatarUrl,
     required this.description,
@@ -78,7 +76,6 @@ class FeedPost {
         : null;
     return FeedPost(
       id: json['id'].toString(),
-      title: json['title'] as String,
       username: user['username'] as String,
       avatarUrl: avatarUrl,
       description: json['description'] as String,

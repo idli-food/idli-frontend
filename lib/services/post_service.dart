@@ -199,7 +199,6 @@ class PostService {
   }
 
   Future<void> createPost({
-    required String title,
     required String description,
     required String mediaType,
     required String rawS3Key,
@@ -209,7 +208,6 @@ class PostService {
     final url = '$_base/post/';
     final payload = <String, dynamic>{
       'hotel': hotelId,
-      'title': title,
       'description': description,
       'status': 'published',
       'ratings': ratings,
@@ -406,12 +404,10 @@ class PostService {
 
   Future<void> updatePost(
     String postId, {
-    String? title,
     String? description,
   }) async {
     final url = '$_base/post/$postId/';
     final payload = <String, dynamic>{
-      if (title != null) 'title': title,
       if (description != null) 'description': description,
     };
     debugPrint('[PostService] PATCH $url  payload=${jsonEncode(payload)}');

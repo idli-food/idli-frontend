@@ -62,7 +62,6 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
   }
 
   Future<void> _editPost() async {
-    final titleController = TextEditingController(text: widget.post.title);
     final descriptionController =
         TextEditingController(text: widget.post.description);
 
@@ -73,10 +72,6 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(labelText: 'Title'),
-            ),
             TextField(
               controller: descriptionController,
               decoration: const InputDecoration(labelText: 'Description'),
@@ -102,7 +97,6 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
     try {
       await _service.updatePost(
         widget.post.id,
-        title: titleController.text.trim(),
         description: descriptionController.text.trim(),
       );
       if (mounted) ref.invalidate(feedProvider);
@@ -206,7 +200,7 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
         builder: (_) => PostLocationScreen(
           lat: lat,
           lon: lon,
-          label: widget.post.hotelName ?? widget.post.title,
+          label: widget.post.hotelName ?? 'Location',
         ),
       ),
     );
@@ -267,43 +261,26 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
 
           SizedBox(height: context.hp(1.2)),
 
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => setState(() => _expanded = !_expanded),
-                  child: Text(
-                    widget.post.title,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: context.sp(17),
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.dark,
-                      height: 1.2,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                  ),
-                ),
-              ),
-              SizedBox(width: context.wp(2)),
-              _RatingBadge(
-                  rating: widget.post.avgRating.toStringAsFixed(1)),
-            ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: _RatingBadge(
+                rating: widget.post.avgRating.toStringAsFixed(1)),
           ),
 
           SizedBox(height: context.hp(0.7)),
 
-          Text(
-            widget.post.description,
-            style: AppTextStyles.secondary.copyWith(
-              fontSize: context.sp(13),
-              height: 1.5,
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Text(
+              widget.post.description,
+              style: AppTextStyles.secondary.copyWith(
+                fontSize: context.sp(13),
+                height: 1.5,
+              ),
+              maxLines: _expanded ? null : 3,
+              overflow: _expanded ? TextOverflow.clip : TextOverflow.ellipsis,
             ),
-            maxLines: _expanded ? null : 3,
-            overflow: _expanded ? TextOverflow.clip : TextOverflow.ellipsis,
           ),
 
           SizedBox(height: context.hp(0.9)),
@@ -312,8 +289,6 @@ class _PostFeedItemState extends ConsumerState<PostFeedItem> {
             _RatingBreakdown(ratings: widget.post.ratings),
             SizedBox(height: context.hp(0.3)),
           ],
-
-          _TagPill(tag: '#${widget.post.title.replaceAll(' ', '').toLowerCase()}'),
         ],
       ),
     );
@@ -887,36 +862,6 @@ class _RatingBreakdown extends StatelessWidget {
               SizedBox(height: context.hp(0.6)),
           ],
         ],
-      ),
-    );
-  }
-}
-
-// ── Tag pill ─────────────────────────────────────────────────────────────────
-
-class _TagPill extends StatelessWidget {
-  final String tag;
-  const _TagPill({required this.tag});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.wp(3),
-        vertical: context.hp(0.5),
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.tagBackground,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Text(
-        tag,
-        style: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: context.sp(12),
-          fontWeight: FontWeight.w500,
-          color: AppColors.primary,
-        ),
       ),
     );
   }

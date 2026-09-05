@@ -21,7 +21,6 @@ class CreateScreen extends ConsumerStatefulWidget {
 }
 
 class _CreateScreenState extends ConsumerState<CreateScreen> {
-  final _titleController = TextEditingController();
   final _descController = TextEditingController();
   final _picker = ImagePicker();
   final _pageController = PageController();
@@ -29,7 +28,6 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
 
   @override
   void dispose() {
-    _titleController.dispose();
     _descController.dispose();
     _pageController.dispose();
     super.dispose();
@@ -71,7 +69,6 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
 
   void _submit() {
     ref.read(createPostNotifierProvider.notifier).submit(
-          title: _titleController.text.trim(),
           description: _descController.text.trim(),
         );
   }
@@ -97,12 +94,10 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
     final state = ref.watch(createPostNotifierProvider);
     final canPost = state.selectedFile != null &&
         state.selectedHotel != null &&
-        _titleController.text.trim().isNotEmpty &&
         state.ratingsComplete &&
         !state.isLoading;
 
-    final canGoDetails = _titleController.text.trim().isNotEmpty &&
-        state.selectedHotel != null;
+    final canGoDetails = state.selectedHotel != null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -169,14 +164,6 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       hotel: state.selectedHotel,
                       enabled: !state.isLoading,
                       onTap: _pickHotel,
-                    ),
-                    SizedBox(height: context.hp(1.2)),
-                    _FormField(
-                      label: AppData.createPostTitleLabel,
-                      hint: AppData.createPostTitleHint,
-                      controller: _titleController,
-                      enabled: !state.isLoading,
-                      onChanged: (_) => setState(() {}),
                     ),
                     SizedBox(height: context.hp(1.2)),
                     _FormField(

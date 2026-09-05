@@ -155,8 +155,6 @@ class AppData {
   static const String createPostPhotoBtn = 'Photo';
   static const String createPostVideoBtn = 'Video';
   static const String createPostChangeMedia = 'Change';
-  static const String createPostTitleLabel = 'TITLE';
-  static const String createPostTitleHint = 'e.g. Best Shawarma in TVM';
   static const String createPostDescLabel = 'DESCRIPTION';
   static const String createPostDescHint = 'Tell us about this dish…';
   static const String createPostHotelLabel = 'RESTAURANT';

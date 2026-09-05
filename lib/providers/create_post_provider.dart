@@ -108,14 +108,13 @@ class CreatePostNotifier extends _$CreatePostNotifier {
   }
 
   Future<void> submit({
-    required String title,
     required String description,
   }) async {
     final file = state.selectedFile;
     final hotel = state.selectedHotel;
     if (file == null || hotel == null || !state.ratingsComplete) return;
 
-    debugPrint('[CreatePost] ▶ submit — title="$title" file=${file.path}');
+    debugPrint('[CreatePost] ▶ submit — file=${file.path}');
 
     try {
       // Step 1: get signed S3 URL
@@ -137,7 +136,6 @@ class CreatePostNotifier extends _$CreatePostNotifier {
       state = state.copyWith(stage: UploadStage.creatingPost);
       debugPrint('[CreatePost] → createPost  mediaType=${state.mediaType}  key=$key  hotel=${hotel.id}');
       await _service.createPost(
-        title: title,
         description: description,
         mediaType: state.mediaType,
         rawS3Key: key,

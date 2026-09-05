@@ -2,7 +2,6 @@ import 'feed_post.dart';
 
 class SavedPost {
   final String id;
-  final String title;
   final String description;
   final String username;
   final String? avatarUrl;
@@ -19,7 +18,6 @@ class SavedPost {
 
   const SavedPost({
     required this.id,
-    required this.title,
     required this.description,
     required this.username,
     this.avatarUrl,
@@ -43,7 +41,6 @@ class SavedPost {
         : null;
     return SavedPost(
       id: json['id'].toString(),
-      title: json['title'] as String,
       description: (json['description'] as String?) ?? '',
       username: user['username'] as String,
       avatarUrl: json['avatar'] as String?,
@@ -63,7 +60,6 @@ class SavedPost {
 
   FeedPost toFeedPost() => FeedPost(
         id: id,
-        title: title,
         description: description,
         username: username,
         avatarUrl: avatarUrl,
