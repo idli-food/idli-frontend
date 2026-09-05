@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../widgets/app_nav_bar.dart';
 import 'feed_screen.dart';
 import 'explore_screen.dart';
-import 'saved_screen.dart';
 import 'profile_screen.dart';
 import 'create_screen.dart';
 
@@ -14,15 +13,12 @@ class MainShellScreen extends StatefulWidget {
 }
 
 class _MainShellScreenState extends State<MainShellScreen> {
-  // App-level tab indices: 0=Home, 1=Explore, 2=Create(+), 3=Saved, 4=Profile
+  // App-level tab indices: 0=Home, 1=Explore, 2=Create(+), 3=Profile
   int _selectedIndex = 0;
-
-  final _savedKey = GlobalKey<SavedScreenState>();
 
   List<Widget> get _screens => [
     const FeedScreen(),
     const ExploreScreen(),
-    SavedScreen(key: _savedKey),
     const ProfileScreen(),
   ];
 
@@ -35,10 +31,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
         setState(() => _selectedIndex = 0);
       }
       return;
-    }
-    // Refresh saved posts every time the Saved tab is tapped
-    if (index == 3) {
-      _savedKey.currentState?.refresh();
     }
     setState(() => _selectedIndex = index);
   }

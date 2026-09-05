@@ -36,8 +36,8 @@ class CreatePostState {
       stage == UploadStage.uploadingMedia ||
       stage == UploadStage.creatingPost;
 
-  bool get ratingsComplete => ratingCategories.every((c) =>
-      (scores[c] ?? 0) >= 1 && (reviews[c] ?? '').trim().isNotEmpty);
+  bool get ratingsComplete =>
+      ratingCategories.every((c) => (scores[c] ?? 0) >= 1);
 
   List<Map<String, dynamic>> get ratingsPayload => ratingCategories
       .map((c) => {

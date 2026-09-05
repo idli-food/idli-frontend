@@ -84,6 +84,58 @@ class AuthService {
     );
   }
 
+  Future<Map<String, dynamic>> loginWithGoogle(String idToken) async {
+    final url = '$_base/auth/google/token/';
+    debugPrint('[AuthService] POST $url');
+    final res = await http.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'id_token': idToken}),
+    );
+    debugPrint('[AuthService] loginWithGoogle → ${res.statusCode}  body=${res.body}');
+    if (res.statusCode != 200) {
+      throw Exception('Google sign-in failed (${res.statusCode}): ${res.body}');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>;
+    if (data['is_new_user'] == false) {
+      final tokens = data['tokens'] as Map<String, dynamic>;
+      await TokenStorage.save(
+        access: tokens['access'] as String,
+        refresh: tokens['refresh'] as String,
+      );
+    }
+    return data;
+  }
+
+  Future<void> completeGoogleSignup(
+    String registrationToken,
+    String username,
+    String phone,
+  ) async {
+    final url = '$_base/auth/google/complete/';
+    debugPrint('[AuthService] POST $url');
+    final res = await http.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'token': registrationToken,
+        'username': username,
+        'phone': phone,
+      }),
+    );
+    debugPrint('[AuthService] completeGoogleSignup → ${res.statusCode}  body=${res.body}');
+    if (res.statusCode != 201) {
+      throw Exception('Signup failed (${res.statusCode}): ${res.body}');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final tokens = (body['data'] as Map<String, dynamic>)['tokens'] as Map<String, dynamic>;
+    await TokenStorage.save(
+      access: tokens['access'] as String,
+      refresh: tokens['refresh'] as String,
+    );
+  }
+
   Future<String> refreshToken(String refresh) async {
     final url = '$_base/auth/refresh/';
     debugPrint('[AuthService] POST $url');

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import '../../resources/app_theme.dart';
 import '../../resources/data.dart';
 import '../../services/auth_service.dart';
+import '../../utils/google_auth_helper.dart';
 import '../../utils/responsive.dart';
 import '../../widgets/shared/app_gradient_button.dart';
+import '../../widgets/shared/google_sign_in_button.dart';
 import '../post-auth/main_shell_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -112,6 +114,11 @@ class _LoginScreenState extends State<LoginScreen> {
             AppGradientButton(
               label: _isLoading ? 'Signing in…' : AppData.loginBtn,
               onTap: _isLoading ? null : _submit,
+            ),
+            SizedBox(height: context.hp(1.5)),
+            GoogleSignInButton(
+              label: AppData.welcomeGoogle,
+              onTap: _isLoading ? null : () => handleGoogleSignIn(context, _service),
             ),
             SizedBox(height: context.hp(2) + MediaQuery.of(context).padding.bottom),
           ],

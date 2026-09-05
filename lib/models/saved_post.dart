@@ -37,15 +37,20 @@ class SavedPost {
 
   factory SavedPost.fromJson(Map<String, dynamic> json) {
     final user = json['user'] as Map<String, dynamic>;
+    final mediaList = json['media'] as List<dynamic>?;
+    final firstMedia = (mediaList != null && mediaList.isNotEmpty)
+        ? mediaList.first as Map<String, dynamic>
+        : null;
     return SavedPost(
       id: json['id'].toString(),
       title: json['title'] as String,
       description: (json['description'] as String?) ?? '',
       username: user['username'] as String,
       avatarUrl: json['avatar'] as String?,
-      thumbnailUrl: json['thumbnail_url'] as String?,
-      mediaUrl: json['media_url'] as String?,
-      mediaType: json['media_type'] as String?,
+      thumbnailUrl:
+          (firstMedia?['thumbnail_url'] ?? json['thumbnail_url']) as String?,
+      mediaUrl: (firstMedia?['media_url'] ?? json['media_url']) as String?,
+      mediaType: (firstMedia?['content_type'] ?? json['media_type']) as String?,
       avgRating: (json['avg_rating'] as num).toDouble(),
       compositeScore: (json['composite_score'] as num?)?.toDouble() ?? 0,
       likeCount: (json['like_count'] as num?)?.toInt() ?? 0,

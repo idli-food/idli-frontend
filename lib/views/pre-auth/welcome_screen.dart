@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../resources/app_theme.dart';
 import '../../resources/data.dart';
+import '../../services/auth_service.dart';
+import '../../utils/google_auth_helper.dart';
 import '../../utils/responsive.dart';
 import '../../utils/auth_mode.dart';
 import '../../widgets/shared/app_gradient_button.dart';
+import '../../widgets/shared/google_sign_in_button.dart';
 import 'login_screen.dart';
 import 'phone_number_screen.dart';
 
@@ -84,6 +87,11 @@ class WelcomeScreen extends StatelessWidget {
                         MaterialPageRoute(builder: (_) => const LoginScreen()),
                       ),
                       outlined: true,
+                    ),
+                    SizedBox(height: context.hp(1.5)),
+                    GoogleSignInButton(
+                      label: AppData.welcomeGoogle,
+                      onTap: () => handleGoogleSignIn(context, AuthService()),
                     ),
                   ],
                 ),

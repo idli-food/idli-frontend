@@ -85,6 +85,26 @@ class PostService {
     return res;
   }
 
+  Future<http.Response> _patchWithRefresh(
+    Uri uri,
+    Map<String, String> headers,
+    String body,
+  ) async {
+    var res = await http.patch(uri, headers: headers, body: body);
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      final refresh = await TokenStorage.getRefresh();
+      if (refresh != null) {
+        final newAccess = await _attemptRefresh(refresh);
+        final retryHeaders = Map<String, String>.from(headers)
+          ..['Authorization'] = 'Bearer $newAccess';
+        res = await http.patch(uri, headers: retryHeaders, body: body);
+      } else {
+        throw Exception('Session expired. Please log in again.');
+      }
+    }
+    return res;
+  }
+
   Future<String> _attemptRefresh(String refresh) async {
     try {
       return await AuthService().refreshToken(refresh);
@@ -191,10 +211,16 @@ class PostService {
       'hotel': hotelId,
       'title': title,
       'description': description,
-      'media_type': mediaType,
-      'raw_s3_key': rawS3Key,
       'status': 'published',
       'ratings': ratings,
+      'media': [
+        {
+          'content_type': mediaType,
+          'category': mediaType == 'video' ? 'video' : 'photos',
+          'position': 0,
+          'media_key': rawS3Key,
+        },
+      ],
     };
     debugPrint('[PostService] POST $url  payload=${jsonEncode(payload)}');
     final headers = await _authHeaders();
@@ -375,6 +401,40 @@ class PostService {
     debugPrint('[PostService] deleteComment → ${res.statusCode}');
     if (res.statusCode != 200) {
       throw Exception('Delete comment failed (${res.statusCode}): ${res.body}');
+    }
+  }
+
+  Future<void> updatePost(
+    String postId, {
+    String? title,
+    String? description,
+  }) async {
+    final url = '$_base/post/$postId/';
+    final payload = <String, dynamic>{
+      if (title != null) 'title': title,
+      if (description != null) 'description': description,
+    };
+    debugPrint('[PostService] PATCH $url  payload=${jsonEncode(payload)}');
+    final headers = await _authHeaders();
+    final res = await _patchWithRefresh(
+      Uri.parse(url),
+      headers,
+      jsonEncode(payload),
+    );
+    debugPrint('[PostService] updatePost → ${res.statusCode}');
+    if (res.statusCode != 200) {
+      throw Exception('Failed to update post (${res.statusCode}): ${res.body}');
+    }
+  }
+
+  Future<void> deletePost(String postId) async {
+    final url = '$_base/post/$postId/';
+    debugPrint('[PostService] DELETE $url');
+    final headers = await _authHeaders();
+    final res = await _deleteWithRefresh(Uri.parse(url), headers);
+    debugPrint('[PostService] deletePost → ${res.statusCode}');
+    if (res.statusCode != 200) {
+      throw Exception('Failed to delete post (${res.statusCode}): ${res.body}');
     }
   }
 }

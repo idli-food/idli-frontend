@@ -10,6 +10,7 @@ class AppData {
   static const String welcomeTagline = 'Your food. Your story.';
   static const String welcomeRegister = 'Create Account';
   static const String welcomeLogin = 'Log In';
+  static const String welcomeGoogle = 'Continue with Google';
 
   // Phone
   static const String phoneTitle = "What's your\nnumber?";
@@ -34,6 +35,16 @@ class AppData {
   static const String loginBtn = 'Log In';
   static const String loginErrorIdentifierEmpty = 'Please enter your phone number or username';
   static const String loginErrorPasswordEmpty = 'Please enter your password';
+
+  // Google complete profile screen
+  static const String googleCompleteTitle = 'Complete your\nprofile';
+  static const String googleCompleteSubtitle = 'Just a couple more details to finish signing up';
+  static const String googleCompleteUsernameLabel = 'Username';
+  static const String googleCompleteUsernameHint = 'e.g. foodie_anu';
+  static const String googleCompletePhoneErrorEmpty = 'Please enter your phone number';
+  static const String googleCompletePhoneErrorInvalid = 'Enter a valid 10-digit mobile number';
+  static const String googleCompleteUsernameErrorEmpty = 'Username is required';
+  static const String googleCompleteBtn = 'Finish signing up';
 
   // Password screen
   static const String passwordTitle = 'Create a\npassword';
@@ -95,7 +106,6 @@ class AppData {
   // Nav bar
   static const String navHome = 'Home';
   static const String navExplore = 'Explore';
-  static const String navSaved = 'Saved';
   static const String navProfile = 'Profile';
 
   // Profile screen
@@ -169,7 +179,7 @@ class AppData {
     'cleanliness': 'Cleanliness',
     'value': 'Value',
   };
-  static const String createPostReviewHint = 'Short review (max 100 chars)';
+  static const String createPostReviewHint = 'Short review (optional, max 100 chars)';
 
   // Home / Feed
   static const String homeCity = 'Tiruvananthapuram';
