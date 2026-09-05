@@ -6,7 +6,16 @@ import 'package:http/http.dart' as http;
 
 class DirectionsResult {
   final List<LatLng> points;
-  const DirectionsResult(this.points);
+  final int durationSeconds;
+  final int staticDurationSeconds;
+  final int distanceMeters;
+
+  const DirectionsResult({
+    required this.points,
+    required this.durationSeconds,
+    required this.staticDurationSeconds,
+    required this.distanceMeters,
+  });
 }
 
 class DirectionsService {
@@ -31,7 +40,8 @@ class DirectionsService {
             headers: {
               'Content-Type': 'application/json',
               'X-Goog-Api-Key': _apiKey,
-              'X-Goog-FieldMask': 'routes.polyline.encodedPolyline',
+              'X-Goog-FieldMask':
+                  'routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline',
             },
             body: jsonEncode({
               'origin': {
@@ -51,6 +61,7 @@ class DirectionsService {
                 },
               },
               'travelMode': 'DRIVE',
+              'routingPreference': 'TRAFFIC_AWARE',
             }),
           )
           .timeout(const Duration(seconds: 10));
@@ -61,17 +72,39 @@ class DirectionsService {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       final routes = body['routes'] as List<dynamic>?;
       if (routes == null || routes.isEmpty) return null;
-      final polyline =
-          (routes.first as Map<String, dynamic>)['polyline'] as Map<String, dynamic>?;
+      final route = routes.first as Map<String, dynamic>;
+
+      final polyline = route['polyline'] as Map<String, dynamic>?;
       final encoded = polyline?['encodedPolyline'] as String?;
       if (encoded == null || encoded.isEmpty) return null;
       final points = _decodePolyline(encoded);
       if (points.isEmpty) return null;
-      return DirectionsResult(points);
+
+      final durationSeconds = _parseSeconds(route['duration'] as String?);
+      final staticDurationSeconds = _parseSeconds(route['staticDuration'] as String?);
+      final distanceMeters = (route['distanceMeters'] as num?)?.toInt();
+      if (durationSeconds == null ||
+          staticDurationSeconds == null ||
+          distanceMeters == null) {
+        return null;
+      }
+
+      return DirectionsResult(
+        points: points,
+        durationSeconds: durationSeconds,
+        staticDurationSeconds: staticDurationSeconds,
+        distanceMeters: distanceMeters,
+      );
     } catch (e) {
       debugPrint('[DirectionsService] error: $e');
       return null;
     }
+  }
+
+  /// Parses a Routes API duration string like "734s" into whole seconds.
+  int? _parseSeconds(String? value) {
+    if (value == null || !value.endsWith('s')) return null;
+    return int.tryParse(value.substring(0, value.length - 1));
   }
 
   /// Standard Google encoded-polyline decoding algorithm.
