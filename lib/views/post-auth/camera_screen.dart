@@ -13,9 +13,10 @@ import '../../utils/media_utils.dart';
 import '../../utils/responsive.dart';
 import '../../widgets/shared/app_gradient_button.dart';
 import 'create_screen.dart';
+import 'gallery_picker_screen.dart';
 import 'instant_preview_screen.dart';
 
-enum _CaptureMode { photo, instant, video }
+enum _CaptureMode { post, instant }
 
 const _cameraBackground = Color(0xFF0A0A0D);
 const _maxInstantDuration = Duration(seconds: 60);
@@ -115,10 +116,19 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
     }
   }
 
-  Future<void> _openWizardWithPick(MediaPick pick) async {
+  Future<void> _openWizardWithMedia() async {
     if (!mounted) return;
+    final result = await Navigator.of(context).push<GalleryPickResult>(
+      MaterialPageRoute(builder: (_) => const GalleryPickerScreen()),
+    );
+    if (result == null || !mounted) return;
+    ref.read(createPostNotifierProvider.notifier).addMedia(
+          result.file,
+          result.mediaType,
+          contentTypeFromPath(result.file.path),
+        );
     final posted = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => CreateScreen(initialPick: pick)),
+      MaterialPageRoute(builder: (_) => const CreateScreen()),
     );
     if (posted == true && mounted) {
       Navigator.of(context).pop(true);
@@ -131,18 +141,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
       return;
     }
     if (_isRecordingInstant) return;
-
-    final state = ref.read(createPostNotifierProvider);
-    if (state.selectedHotel == null || !state.ratingsValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Tag a hotel before posting, and rate all 4 categories if you add a rating.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
 
     try {
       await controller.startVideoRecording();
@@ -382,11 +380,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
               onModeSelected: (m) {
                 if (_isRecordingInstant) return;
                 switch (m) {
-                  case _CaptureMode.photo:
-                    _openWizardWithPick(MediaPick.photo);
-                    return;
-                  case _CaptureMode.video:
-                    _openWizardWithPick(MediaPick.video);
+                  case _CaptureMode.post:
+                    _openWizardWithMedia();
                     return;
                   case _CaptureMode.instant:
                     setState(() => _mode = m);
@@ -587,21 +582,15 @@ class _BottomControlBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _ModeTab(
-                label: 'Photo',
-                selected: mode == _CaptureMode.photo,
-                onTap: () => onModeSelected(_CaptureMode.photo),
+                label: 'Post',
+                selected: mode == _CaptureMode.post,
+                onTap: () => onModeSelected(_CaptureMode.post),
               ),
               const SizedBox(width: 24),
               _ModeTab(
                 label: 'Instant',
                 selected: mode == _CaptureMode.instant,
                 onTap: () => onModeSelected(_CaptureMode.instant),
-              ),
-              const SizedBox(width: 24),
-              _ModeTab(
-                label: 'Video',
-                selected: mode == _CaptureMode.video,
-                onTap: () => onModeSelected(_CaptureMode.video),
               ),
             ],
           ),
